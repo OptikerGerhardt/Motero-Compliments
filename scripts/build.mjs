@@ -15,9 +15,9 @@ await cp('COPYING', 'dist/addon/COPYING');
 await cp('NOTICE.md', 'dist/addon/NOTICE.md');
 // Include preferred source form and build/test instructions with the AGPL binary.
 for (const dir of ['src', 'addon', 'scripts', 'test', 'docs']) {
-  await cp(dir, `dist/addon/source/${dir}`, { recursive: true });
+  await cp(dir, `dist/addon/source/${dir}`, { recursive: true, filter: path => !path.includes('__pycache__') });
 }
-for (const file of ['package.json', 'package-lock.json', 'README.md', 'COPYING', 'LICENSE', 'NOTICE.md']) {
+for (const file of ['package.json', 'package-lock.json', 'README.md', 'CHANGELOG.md', 'COPYING', 'LICENSE', 'NOTICE.md']) {
   await cp(file, `dist/addon/source/${file}`);
 }
 await build({ entryPoints: ['src/plugin.mjs'], outfile: 'dist/addon/motero.js',
@@ -29,5 +29,8 @@ execFileSync('python3', ['-c', `import pathlib,zipfile
 root=pathlib.Path('dist/addon')
 with zipfile.ZipFile('${out}', 'w', zipfile.ZIP_DEFLATED) as z:
  for p in sorted(root.rglob('*')):
-  if p.is_file(): z.write(p,p.relative_to(root))`], { stdio: 'inherit' });
+  if p.is_file():
+   entry=zipfile.ZipInfo(p.relative_to(root).as_posix(), date_time=(2020,1,1,0,0,0))
+   entry.external_attr=0o100644 << 16
+   z.writestr(entry,p.read_bytes(),compress_type=zipfile.ZIP_DEFLATED,compresslevel=9)`], { stdio: 'inherit' });
 console.log(out);

@@ -1,5 +1,19 @@
 {
   "addons": {
-    "motero-compliments@optikergerhardt": { "updates": [] }
+    "motero-compliments@optikergerhardt": {
+      "updates": [
+        {
+          "version": "0.2.0",
+          "update_link": "https://github.com/OptikerGerhardt/Motero-Compliments/releases/download/v0.2.0/motero-compliments-0.2.0.xpi",
+          "update_hash": "sha256:627dc5d8c2b62d4472fdc93a9e2258a7cf37b2487d65123aef9cfefa3ff431e9",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "7.0",
+              "strict_max_version": "10.*"
+            }
+          }
+        }
+      ]
+    }
   }
 }

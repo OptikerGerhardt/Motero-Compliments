@@ -1,42 +1,50 @@
-# Verifikation 0.1.0
+# Verifikation 0.2.0
 
-Stand: 14.11.2026, Linux x86_64.
+Stand: 14.11.2026, Linux x86_64, offizielles Zotero 10.0.8.
 
-- `npm test`: **102 bestanden**, 0 fehlgeschlagen/übersprungen. Enthält die
-  übernommenen Motero-Regressionstests für Inhaltserkennung, Scans,
-  Kopf-/Fußzeilen, Randreferenzen, Fußnoten, lokale Layoutwechsel und
-  manuelle Rahmen; zusätzlich Persistenzvalidierung, Lesezeichenidentität,
-  Koordinaten, schnelle Klickfolgen und Schreibschutz.
-- `npm run build`: installierbares XPI inklusive AGPL-Lizenz, Originalquellen
-  und Build-/Testanweisungen.
-- `python3 scripts/test-zotero.py <zotero>`: **23 funktionale Prüfungen bestanden**
-  mit dem offiziellen Zotero **10.0.8**, in einem neuen temporären Profil,
-  eigener Datenbank und synthetischem PDF. Ergebnis: [zotero-10.0.8.json](zotero-10.0.8.json).
+- `npm test`: **104 bestanden**, keine fehlgeschlagenen oder übersprungenen Tests.
+  Motero-Regressionsfälle für Inhaltserkennung, Scans, Kopf-/Fußzeilen,
+  Randreferenzen, Fußnoten, Layoutwechsel und manuelle Rahmen; zusätzlich
+  Persistenz, Koordinaten, Schreibschutz, schnelle Klickfolgen, sichere
+  Callback-Benachrichtigungen und checksum-gebundene Update-Metadaten.
+- `npm run build`: installierbares XPI mit AGPL-Lizenz und Originalquellen.
+- Isolierter nativer Zotero-Test: **44 funktionale Prüfungen bestanden**.
+  [Vollständiger Ergebnisbericht](zotero-10.0.8.json).
 
-Der Desktop-Test installiert das gepackte XPI und prüft Toolbar, automatischen
-Zuschnitt, Breitenanpassung und lesbare Textebene. Er erstellt und speichert
-native Lesezeichen in der Zotero-Datenbank, schaltet sie über schnelle Klickfolgen
-um und prüft Seitenfähnchen, Filterliste, Sprung und Löschen. Der manuelle Editor
-wird per Tastatur bedient; sein ungerader Rahmen wird gespeichert. Intrinsische
-PDF-Rotation, Benutzerrotation, temporäre Originalansicht und das
-Deaktivieren/Reaktivieren des Plugins werden ebenfalls geprüft. Die PDF-Bytes
-werden vor und nach dem Ablauf vollständig verglichen und bleiben identisch.
+Der Test installiert das gepackte XPI in einem neuen Profil mit eigener
+Datenbank und synthetischem PDF. Er reproduziert Firefox' abgelehnte fremde
+Objektübergabe in getrennten Sicherheitskontexten und prüft den korrigierten
+Benachrichtigungspfad. Automatischen Zuschnitt und den Wechsel zwischen
+Ganzseiten- und Breitenanpassung durchläuft er ohne Permission-Fehler.
 
-## Noch nicht verifiziert
+Geprüft werden außerdem: Zuschnitt direkt unter Aa, Fähnchen-Tab vor Outline,
+Filter/Sprung/Löschen, wiederholte Rückkehr zu nativen Sidebar-Tabs,
+transparente Flaggen innerhalb des Zuschnitts, tatsächlich berechnete
+Hover-Sichtbarkeit, native Annotationen und Erhalt gewöhnlicher schwarzer
+Notizen, präziser Rahmeneditor, Rotation, Abbrechen, Originalansicht,
+Persistenz und vollständige Wiederherstellung beim Deaktivieren/Reaktivieren.
+Die PDF-Bytes werden vollständig vor/nach dem Test verglichen und bleiben gleich.
 
-- Windows, macOS und Zotero 7–9; sie sind im Manifest zugelassen, aber nicht
-  durch diesen Linux-/Zotero-10-Test abgedeckt.
-- Synchronisierung mit einem echten Zotero-Konto bzw. Motero-Gerät. Die
+![Native Zotero-Oberfläche mit synthetischem Test-PDF](screenshots/native-reader-0.2.0.png)
+
+Der Screenshot stammt aus dem echten Zotero-Reader; er wurde visuell geprüft.
+Er zeigt das Aa-Menü und die Lesezeichen-Sidebar, keine persönlichen Dokumente.
+
+## Grenzen
+
+- Windows, macOS und Zotero 7–9 sind nicht durch diesen Linux-/Zotero-10-Test
+  abgedeckt, auch wenn das Manifest diese Versionen zulässt.
+- Synchronisierung mit einem echten Konto/Motero-Gerät wurde nicht durchgeführt.
   Lesezeichen verwenden das bestehende Motero-Format und Zoteros Speicherpfad;
-  der Kontosync wurde nicht durchgeführt. Zuschnitte bleiben absichtlich lokal.
-- Gleichzeitige Split-Views, Zusammenarbeit mit anderen Crop-Plugins,
-  physische Maus-/Touch-Gesten und manuelle visuelle Prüfung. Der Drag-Algorithmus
-  hat Regressionstests; der Desktop-Test bedient den Rahmen über die Tastatur.
-- Performance sehr großer Bücher und beliebige reale PDF-Layouts. Die Analyse
-  ist begrenzt gecacht; automatische Erkennung bleibt eine Heuristik. Bei
-  ungewöhnlichen Layouts Originalansicht prüfen oder manuelle Rahmen verwenden.
+  Zuschnitte bleiben lokal.
+- Gleichzeitige Split-Views und andere Crop-Plugins sind nicht end-to-end geprüft.
+  Maus-/Touch-Hardware wurde nicht bedient: der Rahmenalgorithmus hat
+  Regressionstests, der native Editor wurde per Tastatur/Prozentfeldern und
+  Hover über Firefox' Pseudoklassen-Prüfschnittstelle geprüft.
+- Sehr große Bücher und beliebige reale PDF-Layouts sind nicht vollständig
+  geprüft. Automatische Erkennung bleibt eine Heuristik; Originalansicht oder
+  manuelle Rahmen sind für ungewöhnliche Layouts verfügbar.
 
-Die Testumgebung meldet Zertifikatsfehler für Zoteros eigene Proxy-/API-Checks.
-Diese wurden nicht umgangen; das Plugin benötigt für die getesteten lokalen
-Funktionen keine Netzwerkverbindung. Daraus folgt keine Aussage über
-Online-Funktionen des Zotero-Clients in dieser Cloud-Umgebung.
+Das Testprofil vertraut den bereits im Cloud-System hinterlegten Proxy-CAs.
+Sie werden nur in die temporäre NSS-Datenbank importiert; TLS-Verifikation
+bleibt aktiv. Persönliche Profile und Zugangsdaten werden nicht verwendet.

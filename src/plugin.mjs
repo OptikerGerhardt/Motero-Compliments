@@ -1,6 +1,9 @@
 import { settings, preferenceKey, pageBookmarks, bookmarkAnnotation, SerialQueue } from './core.mjs';
-import { PDFView, waive, contentData, exported } from './pdf.mjs';
-import { element, flagIcon, showPanel } from './ui.mjs';
+import { PDFView } from './pdf.mjs';
+import { waive, contentData, signal } from './bridge.mjs';
+import { element, flagIcon } from './ui.mjs';
+import { ReaderUI } from './reader-ui.mjs';
+export { signal as readerSignal } from './bridge.mjs';
 
 const states = new Map();
 const bindings = [];
@@ -20,12 +23,14 @@ export class ReaderState {
     this.closed = false; this.peek = false;
     this.unload = () => { this.destroy(); states.delete(reader); };
     doc.defaultView.addEventListener('unload', this.unload);
-    this.observer = new doc.defaultView.MutationObserver(exported(doc.defaultView, () => this.discover()));
+    this.observer = new doc.defaultView.MutationObserver(signal(doc.defaultView, () => this.discover()));
     this.observer.observe(doc.body, contentData(doc.defaultView, { childList: true, subtree: true }));
+    this.ui = new ReaderUI(this);
     this.discover();
   }
   discover() {
     if (this.closed) return;
+    this.ui?.sync();
     const current = [this.internal._primaryView, this.internal._secondaryView].filter(Boolean).map(waive);
     for (const [view, entry] of this.views) {
       if (!current.includes(view) || entry.closed) { entry.destroy(); this.views.delete(view); }
@@ -68,7 +73,7 @@ export class ReaderState {
   flagButton(doc, index) {
     const node = element(doc, 'button', undefined, { type: 'button', title: t('Lesezeichen umschalten', 'Toggle bookmark'),
       'aria-label': t('Lesezeichen umschalten', 'Toggle bookmark') });
-    node.append(flagIcon(doc));
+    node.append(flagIcon(doc, true));
     node.addEventListener('click', event => {
       event.preventDefault(); event.stopPropagation();
       this.toggleBookmark(index).catch(error => this.error(error));
@@ -83,8 +88,7 @@ export class ReaderState {
   }
   updateButtons() {
     if (this.closed) return;
-    const index = this.activeView()?.viewer.currentPageNumber - 1;
-    for (const button of this.buttons) this.updateFlag(button, index);
+    this.ui?.updateTabState();
   }
   toggleBookmark(index) {
     return this.queue.run(async () => {
@@ -120,7 +124,7 @@ export class ReaderState {
     });
   }
   changedAnnotations() {
-    this.updateButtons(); this.renderList?.();
+    this.updateButtons(); this.ui?.renderBookmarks();
     for (const view of this.views.values()) view.schedule();
   }
   error(error) {
@@ -145,7 +149,7 @@ export class ReaderState {
     this.doc.defaultView.clearTimeout(this.errorTimer); this.status?.remove();
     for (const dialog of this.dialogs) dialog.close();
     for (const entry of this.views.values()) entry.destroy();
-    for (const node of this.doc.querySelectorAll('[data-motero-toolbar]')) node.remove();
+    this.ui.destroy();
     this.views.clear(); this.buttons.clear(); this.dialogs.clear();
   }
 }
@@ -157,19 +161,17 @@ export function adopt(reader, doc) {
   if (!state) { state = new ReaderState(reader, doc); states.set(reader, state); }
   return state;
 }
-function toolbar({ reader, doc, append }) {
+function toolbar({ reader, doc }) {
   try {
     const state = adopt(reader, doc);
-    if (!state || doc.querySelector('[data-motero-toolbar]')) return;
-    const group = element(doc, 'div', undefined, { 'data-motero-toolbar': 'true' });
-    group.style.cssText = 'display:flex;align-items:center;gap:4px';
-    const controls = element(doc, 'button', 'Motero', { type: 'button', title: t('Zuschnitt und Lesezeichen', 'Cropping and bookmarks') });
-    controls.style.cssText = 'padding:2px 6px;background:transparent;color:inherit;border:1px solid GrayText;border-radius:4px;cursor:pointer';
-    controls.addEventListener('click', () => showPanel(state));
-    const mark = state.flagButton(doc);
-    mark.style.cssText = 'padding:3px;width:26px;height:26px;background:transparent;color:inherit;border:0;cursor:pointer';
-    state.buttons.add(mark); group.append(controls, mark); append(group);
-    state.updateButtons();
+    if (state) state.ui.sync();
+    else if (reader._type === 'pdf') {
+      // React can dispatch renderToolbar from createReader(), before Zotero
+      // assigns _internalReader. No injected toolbar node remains to retrigger it.
+      reader._initPromise.then(() => {
+        if (!doc.defaultView.closed) adopt(reader, doc)?.ui.sync();
+      }).catch(logError);
+    }
   }
   catch (error) { logError(error); }
 }
@@ -180,15 +182,17 @@ export async function startup({ id }) {
   register('renderToolbar', toolbar);
   register('createViewContextMenu', ({ reader, doc, append }) => {
     const state = adopt(reader, doc);
-    if (state) append({ label: 'Motero: ' + t('Zuschnitt und Lesezeichen…', 'Cropping and bookmarks…'), onCommand: () => showPanel(state) });
+    if (state) {
+      append({ label: t('PDF-Zuschnitt…', 'PDF cropping…'), onCommand: () => state.ui.openAppearance() });
+      append({ label: t('Lesezeichen', 'Bookmarks'), onCommand: () => state.ui.openBookmarks() });
+    }
   });
   // Plugin enables/upgrades must also adopt already open tabs and reader windows.
   for (const reader of Zotero.Reader._readers) {
     await reader._initPromise;
     if (reader._type !== 'pdf') continue;
     const doc = reader._iframeWindow?.document;
-    const host = doc?.querySelector('.toolbar .end, .toolbar .center, .toolbar');
-    if (host) toolbar({ reader, doc, append: node => host.append(node) });
+    if (doc) toolbar({ reader, doc });
   }
   observerID = Zotero.Notifier.registerObserver({ notify: () => {
     for (const state of states.values()) state.changedAnnotations();

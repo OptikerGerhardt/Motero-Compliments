@@ -4,6 +4,7 @@
 Usage: python3 scripts/test-zotero.py /absolute/path/to/zotero
 No personal profile, account, documents or library are accessed.
 """
+import argparse
 import json
 import os
 from pathlib import Path
@@ -49,7 +50,12 @@ def fixture(path):
 
 
 def main():
-    binary = Path(sys.argv[1]).resolve()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('binary', type=Path)
+    parser.add_argument('--upgrade-from', type=Path, help='Install an older XPI and test Zotero\'s published update feed first')
+    parser.add_argument('--ca-cert', type=Path, action='append', default=[], help='Import a trusted local CA into the disposable profile only')
+    args = parser.parse_args()
+    binary = args.binary.resolve()
     runtime = Path(tempfile.mkdtemp(prefix="motero-zotero-test-"))
     profile = runtime / "profile"
     extensions = profile / "extensions"
@@ -59,7 +65,7 @@ def main():
     pdf = runtime / "fixture.pdf"
     fixture(pdf)
     version = json.loads((ROOT / 'package.json').read_text())["version"]
-    xpi = ROOT / f"dist/motero-compliments-{version}.xpi"
+    xpi = args.upgrade_from or ROOT / f"dist/motero-compliments-{version}.xpi"
     with zipfile.ZipFile(xpi) as archive:
         manifest = json.loads(archive.read("manifest.json"))
         assert "motero.js" in archive.namelist()
@@ -72,7 +78,9 @@ def main():
     (harness / "bootstrap.js").write_text('var scope=this; function install(){} function uninstall(){} function shutdown(){}\n'
         'function startup(data){Services.scriptloader.loadSubScript(data.rootURI+"run.js",scope); run();}\n')
     js = (ROOT / "test/zotero-integration.js").read_text()
-    (harness / "run.js").write_text("var TEST_ROOT=" + json.dumps(str(runtime)) + ";\n" + js)
+    (harness / "run.js").write_text("var TEST_ROOT=" + json.dumps(str(runtime)) + ";\n"
+        + "var TEST_EXPECTED_VERSION=" + json.dumps(version) + ";\n"
+        + "var TEST_CHECK_UPDATES=" + json.dumps(bool(args.upgrade_from)) + ";\n" + js)
     with zipfile.ZipFile(extensions / "motero-test@local.xpi", "w") as archive:
         for file in harness.iterdir():
             archive.write(file, file.name)
@@ -87,6 +95,11 @@ def main():
         "extensions.zotero.reportTranslationFailure": False,
     }
     (profile / "user.js").write_text("\n".join(f"user_pref({json.dumps(k)}, {json.dumps(v)});" for k, v in prefs.items()))
+    if args.ca_cert:
+        subprocess.run(['certutil', '-N', '--empty-password', '-d', f'sql:{profile}'], check=True)
+        for index, cert in enumerate(args.ca_cert):
+            subprocess.run(['certutil', '-A', '-d', f'sql:{profile}', '-n', f'test-ca-{index}',
+                '-t', 'C,,', '-i', str(cert.resolve())], check=True)
     result = runtime / "result.json"
     env = {**os.environ, "MOZ_HEADLESS": "1", "XDG_CACHE_HOME": str(runtime / "cache")}
     log = (runtime / "zotero.log").open("w")

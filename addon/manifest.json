@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Motero Compliments",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Motero PDF view cropping and reading bookmarks for Zotero Desktop.",
   "homepage_url": "https://github.com/OptikerGerhardt/Motero-Compliments",
   "applications": {
