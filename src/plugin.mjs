@@ -7,13 +7,13 @@ export { signal as readerSignal } from './bridge.mjs';
 
 const states = new Map();
 const bindings = [];
-let active = false, pluginID;
+let active = false, pluginID, pluginRoot;
 const t = (de, en) => Zotero.locale?.startsWith('de') ? de : en;
 const logError = error => Zotero.logError(error);
 
 export class ReaderState {
   constructor(reader, doc) {
-    this.reader = reader; this.doc = doc; this.t = t;
+    this.reader = reader; this.doc = doc; this.t = t; this.rootURI = pluginRoot;
     this.internal = waive(reader._internalReader);
     this.key = preferenceKey(reader._item);
     try { this.options = settings(JSON.parse(Zotero.Prefs.get(this.key, true) || '{}')); }
@@ -175,9 +175,9 @@ function toolbar({ reader, doc }) {
   }
   catch (error) { logError(error); }
 }
-export async function startup({ id }) {
+export async function startup({ id, rootURI }) {
   // Reader event handlers are registered synchronously during plugin startup.
-  active = true; pluginID = id;
+  active = true; pluginID = id; pluginRoot = rootURI;
   const register = (type, fn) => { Zotero.Reader.registerEventListener(type, fn, id); bindings.push([type, fn]); };
   register('renderToolbar', toolbar);
   register('createViewContextMenu', ({ reader, doc, append }) => {

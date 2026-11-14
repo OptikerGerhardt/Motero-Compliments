@@ -10,7 +10,7 @@ export function element(doc, tag, text, attrs = {}) {
 }
 export function flagIcon(doc, outline = false) {
   const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20'); svg.setAttribute('aria-hidden', 'true');
   const path = doc.createElementNS(svg.namespaceURI, 'path');
   path.setAttribute('d', 'M5 2h14v20l-7-4.5-7 4.5z'); path.setAttribute('fill', outline ? 'none' : 'currentColor');
   if (outline) { path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '1.5'); path.setAttribute('stroke-linejoin', 'round'); }
@@ -24,8 +24,9 @@ function dialog(state, title) {
   const doc = state.doc, node = element(doc, 'dialog');
   node.setAttribute('aria-label', title);
   node.className = 'motero-crop-editor';
+  if (state.ui?.font) node.style.font = state.ui.font;
   const heading = element(doc, 'h2', title);
-  heading.style.cssText = 'font-size:16px;margin:0 0 12px'; node.append(heading);
+  node.append(heading);
   doc.body.append(node); state.dialogs.add(node);
   node.addEventListener('close', () => { state.dialogs.delete(node); node.remove(); });
   return node;

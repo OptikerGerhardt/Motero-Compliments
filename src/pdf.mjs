@@ -1,7 +1,7 @@
 import { getReadingSamples, getReadingTextLines, buildReadingModel, getReadingBounds,
   localReadingPages, buildReadingProfiles, resolveReadingBounds, rotateReadingBounds
 } from './vendor/motero/reading-layout.mjs';
-import { compactReadingImage } from './vendor/motero/reading-image.mjs';
+import { WorkQueue, preparationPages } from './work-queue.mjs';
 import { cropForPage, paddedBounds, pageBookmarks, isReaderBookmark } from './core.mjs';
 import { waive, contentData, signal, drawingHook } from './bridge.mjs';
 import { PDF_CSS } from './styles.mjs';
@@ -9,49 +9,43 @@ import { flagIcon } from './ui.mjs';
 const FULL = [0, 0, 1, 1];
 
 export class Analysis {
-  constructor(win) {
+  constructor(win, rootURI) {
     this.win = waive(win);
     this.pdf = waive(this.win.PDFViewerApplication.pdfDocument);
     this.raw = new Map();
-    this.pending = new Map();
-    this.tasks = new Set();
+    this.work = new WorkQueue(2);
+    Services.scriptloader.loadSubScriptWithOptions(rootURI + 'analysis.js', {
+      target: this.win, ignoreCache: true, allowUnsafeURL: true
+    });
+    this.renderer = waive(this.win.MoteroPageAnalysis.create());
     this.closed = false;
   }
-  async read(index) {
+  async read(index, background = false) {
     if (this.closed) throw new Error('Reader closed');
-    if (this.raw.has(index)) return this.raw.get(index);
-    if (this.pending.has(index)) return this.pending.get(index);
-    const promise = this.render(index).then(value => {
-      this.raw.set(index, value);
-      if (this.raw.size > 32) this.raw.delete(this.raw.keys().next().value);
+    if (this.raw.has(index)) {
+      const value = this.raw.get(index); this.raw.delete(index); this.raw.set(index, value); return value;
+    }
+    return this.work.run(index, async () => {
+      const value = await this.render(index);
+      if (!this.closed) this.raw.set(index, value);
+      if (this.raw.size > 64) this.raw.delete(this.raw.keys().next().value);
       return value;
-    }).finally(() => this.pending.delete(index));
-    this.pending.set(index, promise);
-    return promise;
+    }, background);
   }
   async render(index) {
-    const page = waive(await this.pdf.getPage(index + 1));
-    if (this.closed) throw new Error('Reader closed');
-    const natural = page.getViewport(contentData(this.win, { scale: 1, rotation: page.rotate }));
-    const viewport = page.getViewport(contentData(this.win, {
-      scale: Math.min(1, 640 / Math.max(natural.width, natural.height)), rotation: page.rotate
-    }));
-    const canvas = waive(this.win.document.createElement('canvas'));
-    canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
-    const context = waive(canvas.getContext('2d', contentData(this.win, { willReadFrequently: true })));
-    const options = new this.win.Object();
-    options.canvasContext = context; options.viewport = viewport; options.background = '#ffffff';
-    const task = waive(page.render(options));
-    this.tasks.add(task);
+    if (this.closed) throw Error('Reader closed');
+    let phase = 'extract';
     try {
-      await task.promise;
-      if (this.closed) throw new Error('Reader closed');
-      const image = compactReadingImage(context.getImageData(0, 0, canvas.width, canvas.height));
-      const text = waive(await page.getTextContent());
-      return { index, image, lines: getReadingTextLines(text, natural),
-        rotation: page.rotate, width: natural.width, height: natural.height };
+      const result = await this.renderer.extract(contentData(this.win, { index }));
+      if (this.closed) throw Error('Reader closed');
+      phase = 'data transfer';
+      const data = Components.utils.cloneInto(waive(result), globalThis);
+      phase = 'text geometry';
+      return { index, image: data.image, rotation: data.rotation,
+        width: data.viewport.width, height: data.viewport.height,
+        lines: getReadingTextLines(data.text, data.viewport) };
     }
-    finally { this.tasks.delete(task); canvas.width = canvas.height = 0; }
+    catch (error) { throw Error(`Auto crop, page ${index + 1}, ${phase}: ${error.message || error}`); }
   }
   async initialize(includeMarginalia) {
     const samples = [];
@@ -62,7 +56,7 @@ export class Analysis {
       bounds: getReadingBounds(p.image, p.lines, model, p.index, { includeMarginalia }) })));
     return { samples, model, profiles };
   }
-  async bounds(index, includeMarginalia) {
+  async bounds(index, includeMarginalia, background = false) {
     if (!this.initial || this.includeMarginalia !== includeMarginalia) {
       this.includeMarginalia = includeMarginalia;
       this.initial = this.initialize(includeMarginalia);
@@ -70,7 +64,7 @@ export class Analysis {
     const { samples, model, profiles } = await this.initial;
     const nearby = [];
     for (let i = Math.max(0, index - 2); i <= Math.min(this.pdf.numPages - 1, index + 2); i++) {
-      nearby.push(await this.read(i));
+      nearby.push(await this.read(i, background));
     }
     const local = localReadingPages(nearby, index);
     const localModel = local.length >= 3 ? buildReadingModel(local) : model;
@@ -81,8 +75,8 @@ export class Analysis {
   }
   destroy() {
     this.closed = true;
-    for (const task of this.tasks) task.cancel();
-    this.raw.clear(); this.pending.clear(); this.initial = null;
+    this.renderer.destroy();
+    this.raw.clear(); this.initial = null;
   }
 }
 
@@ -95,18 +89,24 @@ export class PDFView {
     this.win = waive(view._iframeWindow);
     this.app = waive(this.win.PDFViewerApplication);
     this.viewer = waive(this.app.pdfViewer);
-    this.analysis = new Analysis(this.win);
+    this.analysis = new Analysis(this.win, state.rootURI);
+    this.layout = waive(this.win.MoteroPageAnalysis.installLayout());
     this.bounds = new Map();
     this.busHandlers = [];
     this.saved = new Map();
     this.noteHooks = new Map();
     this.generation = 0;
+    this.autoFit = true; this.warmQueue = []; this.warmWorkers = 0; this.preparationErrors = new Map();
     this.style = this.win.document.createElement('style');
     this.style.textContent = PDF_CSS;
     this.win.document.head.append(this.style);
-    for (const name of ['pagerendered', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged']) {
+    for (const name of ['pagerendered', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged']) {
       this.on(name, () => this.schedule());
     }
+    this.on('scalechanging', () => {
+      if (!this.settingScale) this.autoFit = false;
+      this.schedule();
+    });
     this.on('pagechanging', () => { this.schedule(true); state.updateButtons(); });
     this.scroll = () => this.schedule();
     this.viewer.container.addEventListener('scroll', this.scroll);
@@ -133,8 +133,8 @@ export class PDFView {
       });
     }, 60);
   }
-  invalidate() { this.failed = false; this.bounds.clear(); this.generation++; this.schedule(true); }
-  async naturalBounds(index) {
+  invalidate() { this.failed = false; this.autoFit = true; this.warmQueue = []; this.preparationErrors.clear(); this.bounds.clear(); this.generation++; this.schedule(true); }
+  async naturalBounds(index, background = false) {
     const options = this.state.options;
     if (options.mode === 'off' || this.state.peek) return FULL;
     const page = waive(await this.app.pdfDocument.getPage(index + 1));
@@ -142,7 +142,41 @@ export class PDFView {
       // Manual crops are stored before user view rotation, like Motero.
       return rotateReadingBounds(cropForPage(options.crops, index) || FULL, page.rotate);
     }
-    return paddedBounds(await this.analysis.bounds(index, options.includeMarginalia), options.margin);
+    if (!background && this.preparationErrors.has(index)) throw this.preparationErrors.get(index);
+    return paddedBounds(await this.analysis.bounds(index, options.includeMarginalia, background), options.margin);
+  }
+  prepareAhead(current) {
+    if (this.closed || this.state.options.mode !== 'automatic' || this.state.peek) return;
+    if (this.warmCenter === current && this.warmGeneration === this.generation) return;
+    const direction = this.warmCenter !== undefined && current < this.warmCenter ? -1 : 1;
+    this.warmCenter = current; this.warmGeneration = this.generation;
+    this.warmQueue = preparationPages(current, this.viewer.pagesCount, direction)
+      .filter(index => !this.bounds.has(index) && !this.preparationErrors.has(index));
+    this.win.clearTimeout(this.warmTimer);
+    this.warmTimer = this.win.setTimeout(() => {
+      while (this.warmWorkers < 2 && this.warmQueue.length) this.warm();
+    }, 150);
+  }
+  async warm() {
+    this.warmWorkers++;
+    try {
+      while (!this.closed && this.warmQueue.length) {
+        const index = this.warmQueue.shift(), generation = this.generation;
+        if (this.bounds.has(index)) continue;
+        try {
+          const bounds = await this.naturalBounds(index, true);
+          if (this.closed || generation !== this.generation) continue;
+          this.bounds.set(index, bounds);
+          this.viewer.viewer.setAttribute('data-motero-prepared-pages', String(this.bounds.size));
+          this.viewer.viewer.setAttribute('data-motero-analysis-cache', String(this.analysis.raw.size));
+          this.schedule();
+        }
+        catch (error) {
+          if (!this.closed && generation === this.generation) this.preparationErrors.set(index, error);
+        }
+      }
+    }
+    finally { this.warmWorkers--; }
   }
   displayed(index, pageView) {
     const bounds = this.bounds.get(index) || FULL;
@@ -173,6 +207,7 @@ export class PDFView {
       }
       if (fit && this.state.options.mode !== 'off' && !this.state.peek) this.fit(current);
       this.state.updateButtons();
+      this.prepareAhead(current);
     }
     finally {
       this.busy = false;
@@ -181,6 +216,7 @@ export class PDFView {
   }
   applyPages() {
     const enabled = this.state.options.mode !== 'off' && !this.state.peek;
+    this.viewer.viewer.toggleAttribute('data-motero-cropping', enabled);
     this.hideNativeBookmarkNotes();
     for (let i = 0; i < this.viewer.pagesCount; i++) {
       const page = waive(this.viewer.getPageView(i));
@@ -196,6 +232,7 @@ export class PDFView {
       const b = enabled ? this.displayed(i, page) : FULL;
       const { width: w, height: h } = page.viewport;
       const trims = [b[1] * h, (1 - b[2]) * w, (1 - b[3]) * h, b[0] * w];
+      div.setAttribute('data-motero-crop', trims.join(' '));
       const values = { 'clip-path': `inset(${trims.map(n => `${n}px`).join(' ')})` };
       ['top', 'right', 'bottom', 'left'].forEach((side, n) => { values[`margin-${side}`] = `${-trims[n]}px`; });
       for (const [key, value] of Object.entries(values)) {
@@ -215,8 +252,8 @@ export class PDFView {
       }
       corner.style.top = `${trims[0] + 4}px`;
       corner.style.right = `${trims[1] + 4}px`;
-      corner.style.width = `${Math.max(1, Math.min(40, (b[2] - b[0]) * w - 8))}px`;
-      corner.style.height = `${Math.max(1, Math.min(40, (b[3] - b[1]) * h - 8))}px`;
+      corner.style.width = `${Math.max(1, Math.min(32, (b[2] - b[0]) * w - 8))}px`;
+      corner.style.height = `${Math.max(1, Math.min(32, (b[3] - b[1]) * h - 8))}px`;
       const bookmarks = pageBookmarks(this.state.annotations(), i);
       const marker = corner.querySelector('.motero-bookmark-marker');
       marker.style.display = bookmarks.length ? '' : 'none';
@@ -248,7 +285,7 @@ export class PDFView {
   }
   fit(index) {
     const p = this.viewer.getPageView(index);
-    if (!p?.viewport || !this.bounds.has(index)) return;
+    if (!this.autoFit || !p?.viewport || !this.bounds.has(index)) return;
     const b = this.displayed(index, p), c = this.viewer.container;
     const w = p.viewport.width / this.viewer.currentScale;
     const h = p.viewport.height / this.viewer.currentScale;
@@ -256,7 +293,9 @@ export class PDFView {
     const sy = Math.max(1, c.clientHeight - 24) / ((b[3] - b[1]) * h);
     const mode = this.state.options.fit;
     const scale = Math.max(.1, Math.min(10, mode === 'width' ? sx : mode === 'height' ? sy : Math.min(sx, sy)));
-    if (Math.abs(scale - this.viewer.currentScale) > .002) this.viewer.currentScaleValue = scale;
+    this.settingScale = true;
+    try { if (Math.abs(scale - this.viewer.currentScale) > .002) this.viewer.currentScaleValue = scale; }
+    finally { this.settingScale = false; }
     this.appliedScale = this.viewer.currentScaleValue;
   }
   restoreScale() {
@@ -267,9 +306,11 @@ export class PDFView {
   }
   destroy() {
     if (this.closed) return;
-    this.closed = true; this.generation++;
+    this.closed = true; this.generation++; this.warmQueue = [];
     this.win.clearTimeout(this.timer);
+    this.win.clearTimeout(this.warmTimer);
     this.analysis.destroy(); this.resize.disconnect();
+    this.layout.destroy();
     this.viewer.container.removeEventListener('scroll', this.scroll);
     this.win.removeEventListener('unload', this.unload);
     for (const [name, fn] of this.busHandlers) this.app.eventBus.off(name, fn);
@@ -278,6 +319,7 @@ export class PDFView {
         if (value) div.style.setProperty(key, value, priority); else div.style.removeProperty(key);
       }
       div.querySelector('.motero-page-corner')?.remove();
+      div.removeAttribute('data-motero-crop');
     }
     for (const [page, { original, hook, own }] of this.noteHooks) {
       if (waive(page._pushNote) !== waive(hook)) continue; // Another extension now owns it.
@@ -285,6 +327,9 @@ export class PDFView {
       if (!this.view._destroyed) page.render();
     }
     this.noteHooks.clear();
+    this.viewer.viewer.removeAttribute('data-motero-prepared-pages');
+    this.viewer.viewer.removeAttribute('data-motero-analysis-cache');
+    this.viewer.viewer.removeAttribute('data-motero-cropping');
     this.saved.clear(); this.restoreScale(); this.style.remove();
   }
 }

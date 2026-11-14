@@ -1,0 +1,26 @@
+{
+  "private_document": true,
+  "document_published": false,
+  "screenshots_taken": false,
+  "zotero": "10.0.8",
+  "baseline": {
+    "version": "0.2.0",
+    "ok": false,
+    "error": "Error: Motero: Permission denied to pass object to privileged code"
+  },
+  "fixed": {
+    "version": "0.2.1",
+    "ok": true,
+    "checks": [
+      "Privately supplied PDF opens at the reported reading area",
+      "Automatic crop completes on the supplied PDF",
+      "Fit mode applies without a permission error: width",
+      "Fit mode applies without a permission error: height",
+      "Fit mode applies without a permission error: page",
+      "Margin and marginal-note settings apply without a permission error",
+      "Fast navigation settles on the requested page",
+      "Native Reset Zoom remains in effect with this PDF",
+      "Supplied PDF bytes remain unchanged"
+    ]
+  }
+}

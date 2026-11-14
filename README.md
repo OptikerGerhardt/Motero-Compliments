@@ -30,9 +30,9 @@ nicht automatisch verifiziert.
 - **Originalansicht** zeigt vorübergehend die vollständigen Seiten;
   gespeicherte Rahmen bleiben erhalten. **Zurücksetzen** löscht sie.
 - **Oben rechts im sichtbaren PDF-Ausschnitt hovern** zeigt den Lesezeichen-Schalter.
-  Ein gespeichertes Lesezeichen bleibt als transparente Motero-Flagge sichtbar;
+  Ein gespeichertes Lesezeichen bleibt als kleine Motero-Flagge mit 65% Deckkraft sichtbar;
   die Klickschaltfläche erscheint erst beim Überfahren oder Tastaturfokus.
-- Der **Fähnchen-Tab links neben Outline** öffnet die Lesezeichen in Zoteros
+- Der **Fähnchen-Tab rechts neben Outline** öffnet die Lesezeichen in Zoteros
   Sidebar: filtern, direkt zur Seite springen und löschen. Gewöhnliche schwarze
   Notizen zählen nicht dazu. Zurück zu Outline/Annotationen/Vorschaubildern über
   deren unveränderte native Schaltflächen wechseln.
@@ -43,9 +43,13 @@ Lesezeichen sind normale Zotero-Notizannotationen mit `Bookmark ·` bzw.
 schreibgeschützte Annotationen werden nicht verändert. Zotero übernimmt deren
 normale Synchronisierung. Es werden keine PDF-Inhaltsverzeichnisse bearbeitet.
 
+Der Desktop bereitet bis zu **12 Seiten voraus und 6 zurück** vor. Zwei Analyseaufgaben
+und ein 64-Seiten-Cache begrenzen die Last; sichtbare Seiten haben Vorrang. Nativer
+Reset Zoom und eigener Zoom bleiben wirksam, gespeicherte Rahmen bleiben erhalten.
+
 ## Entwicklung
 
-![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.2.0.png)
+![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.2.1.png)
 
 Node.js 22+, npm und Python 3. Keine Laufzeit-Abhängigkeiten oder externen Dienste.
 

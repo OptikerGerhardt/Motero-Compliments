@@ -15,14 +15,26 @@ import sys
 import tempfile
 import time
 import zipfile
+import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def fixture(path):
+def fixture(path, rich=False):
     objects = [b"<< /Type /Catalog /Pages 2 0 R >>", b"", b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    image_id = None
+    if rich:
+        # RGB image + soft mask exercise PDF.js image/group rendering, unlike
+        # the original text-only fixture. Entirely synthetic, no external files.
+        rgb = bytes(v for y in range(96) for x in range(96) for v in (60 + x, 80 + y, 120))
+        alpha = bytes(80 + (x+y) % 176 for y in range(96) for x in range(96))
+        image_id = len(objects) + 1
+        mask_id = image_id + 1
+        for raw, color, mask in [(rgb, '/DeviceRGB', f' /SMask {mask_id} 0 R'), (alpha, '/DeviceGray', '')]:
+            packed = zlib.compress(raw)
+            objects.append(f"<< /Type /XObject /Subtype /Image /Width 96 /Height 96 /ColorSpace {color} /BitsPerComponent 8 /Filter /FlateDecode /Length {len(packed)}{mask} >>\nstream\n".encode() + packed + b"\nendstream")
     kids = []
-    for i in range(6):
+    for i in range(64 if rich else 6):
         page_id, stream_id = len(objects) + 1, len(objects) + 2
         kids.append(f"{page_id} 0 R")
         origin = 20 if i == 4 else 0
@@ -32,10 +44,13 @@ def fixture(path):
         for y in range(170, 700, 24):
             lines.append(f"BT /F1 12 Tf {x} {y} Td (Synthetic reading content for Zotero crop tests.) Tj ET")
         lines += [f"BT /F1 9 Tf 300 70 Td ({i + 1}) Tj ET", f"0 g {x} 135 250 10 re f"]
+        if rich:
+            lines.append("q .8 0 0 .8 0 0 cm 100 0 0 100 200 300 cm /Scan Do Q")
         stream = "\n".join(lines).encode()
-        objects += [f"<< /Type /Page /Parent 2 0 R /MediaBox [{origin} 0 {600 + origin} 800] /Rotate {rotation} /Resources << /Font << /F1 3 0 R >> >> /Contents {stream_id} 0 R >>".encode(),
+        images = f" /XObject << /Scan {image_id} 0 R >>" if rich else ""
+        objects += [f"<< /Type /Page /Parent 2 0 R /MediaBox [{origin} 0 {600 + origin} 800] /Rotate {rotation} /Resources << /Font << /F1 3 0 R >>{images} >> /Contents {stream_id} 0 R >>".encode(),
                     f"<< /Length {len(stream)} >>\nstream\n".encode() + stream + b"\nendstream"]
-    objects[1] = f"<< /Type /Pages /Kids [{' '.join(kids)}] /Count 6 >>".encode()
+    objects[1] = f"<< /Type /Pages /Kids [{' '.join(kids)}] /Count {len(kids)} >>".encode()
     data = bytearray(b"%PDF-1.4\n")
     offsets = [0]
     for i, obj in enumerate(objects, 1):
@@ -54,6 +69,9 @@ def main():
     parser.add_argument('binary', type=Path)
     parser.add_argument('--upgrade-from', type=Path, help='Install an older XPI and test Zotero\'s published update feed first')
     parser.add_argument('--ca-cert', type=Path, action='append', default=[], help='Import a trusted local CA into the disposable profile only')
+    parser.add_argument('--rich-pdf', action='store_true', help='Use 64 synthetic pages with image soft masks')
+    parser.add_argument('--pdf', type=Path, help='Private local PDF; runs the no-screenshot document smoke test')
+    parser.add_argument('--xpi', type=Path, help='Test a specific artifact without checking for updates')
     args = parser.parse_args()
     binary = args.binary.resolve()
     runtime = Path(tempfile.mkdtemp(prefix="motero-zotero-test-"))
@@ -63,9 +81,12 @@ def main():
     data = runtime / "data"
     data.mkdir()
     pdf = runtime / "fixture.pdf"
-    fixture(pdf)
+    if args.pdf:
+        shutil.copyfile(args.pdf, pdf)
+    else:
+        fixture(pdf, rich=args.rich_pdf)
     version = json.loads((ROOT / 'package.json').read_text())["version"]
-    xpi = args.upgrade_from or ROOT / f"dist/motero-compliments-{version}.xpi"
+    xpi = args.upgrade_from or args.xpi or ROOT / f"dist/motero-compliments-{version}.xpi"
     with zipfile.ZipFile(xpi) as archive:
         manifest = json.loads(archive.read("manifest.json"))
         assert "motero.js" in archive.namelist()
@@ -77,7 +98,7 @@ def main():
     (harness / "manifest.json").write_text(json.dumps(test_manifest))
     (harness / "bootstrap.js").write_text('var scope=this; function install(){} function uninstall(){} function shutdown(){}\n'
         'function startup(data){Services.scriptloader.loadSubScript(data.rootURI+"run.js",scope); run();}\n')
-    js = (ROOT / "test/zotero-integration.js").read_text()
+    js = (ROOT / ("test/zotero-document-smoke.js" if args.pdf else "test/zotero-integration.js")).read_text()
     (harness / "run.js").write_text("var TEST_ROOT=" + json.dumps(str(runtime)) + ";\n"
         + "var TEST_EXPECTED_VERSION=" + json.dumps(version) + ";\n"
         + "var TEST_CHECK_UPDATES=" + json.dumps(bool(args.upgrade_from)) + ";\n" + js)
