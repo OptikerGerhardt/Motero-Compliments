@@ -1,0 +1,51 @@
+name: Publish verified release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: New release tag (vMAJOR.MINOR.PATCH)
+        required: true
+        type: string
+      commit:
+        description: Exact tested source commit (40-character SHA)
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run release:prepare
+      - name: Check the committed update checksum
+        run: git diff --exit-code -- update.json
+      - name: Publish the exact verified asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_COMMIT: ${{ inputs.commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          expected_tag="v$(node -p "require('./package.json').version")"
+          [[ "$RELEASE_TAG" == "$expected_tag" ]]
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_COMMIT" --draft --title "Motero Compliments $RELEASE_TAG" \
+              --notes-file CHANGELOG.md
+          fi
+          # No --clobber: existing published artifacts must never be replaced.
+          gh release upload "$RELEASE_TAG" dist/*.xpi dist/SHA256SUMS --repo "$GITHUB_REPOSITORY"
+          gh release edit "$RELEASE_TAG" --draft=false --latest --repo "$GITHUB_REPOSITORY"
