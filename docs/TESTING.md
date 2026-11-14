@@ -48,3 +48,16 @@ Er zeigt das Aa-Menü und die Lesezeichen-Sidebar, keine persönlichen Dokumente
 Das Testprofil vertraut den bereits im Cloud-System hinterlegten Proxy-CAs.
 Sie werden nur in die temporäre NSS-Datenbank importiert; TLS-Verifikation
 bleibt aktiv. Persönliche Profile und Zugangsdaten werden nicht verwendet.
+
+## Öffentlicher Update-Test nach Veröffentlichung
+
+Zotero wurde mit dem alten XPI 0.1.0 in einem weiteren frischen Profil gestartet.
+Sein eingebauter Updater fand 0.2.0 über die öffentliche `update.json`, lud das
+GitHub-Release herunter, prüfte dessen Hash und aktivierte das Update. Danach
+bestanden **46 funktionale Prüfungen**, einschließlich der gesamten oben
+beschriebenen Reader-Prüfung. [Ergebnisbericht](zotero-upgrade-0.1.0-to-0.2.0.json).
+
+Der öffentliche Download wurde zusätzlich unabhängig gegen den veröffentlichten
+SHA-256 geprüft. GitHub Actions hat das XPI aus dem getesteten Release-Commit
+reproduziert und veröffentlicht. Das bereits veröffentlichte Asset wurde für
+diesen Nachweis weder neu gebaut noch ersetzt.

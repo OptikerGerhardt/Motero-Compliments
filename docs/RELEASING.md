@@ -28,6 +28,23 @@ test evidence, PRs, tags and release assets provide the audit trail.
 The updater is Zotero's built-in mechanism, not a plugin-created polling or
 download service. It preserves Zotero's TLS and artifact-hash verification.
 
+## Publish through GitHub Actions
+
+The **Publish verified release** workflow builds the exact tested source commit,
+runs the checks and refuses to upload if its checksum differs from the committed
+feed. Its normal GitHub Actions token uploads the assets and publishes the
+release; no additional repository secret is required.
+
+```sh
+gh workflow run release.yml --ref main \
+  -f tag=vMAJOR.MINOR.PATCH -f commit=FULL_TESTED_COMMIT_SHA
+```
+
+Choose a fresh version, wait for the workflow to succeed, then run the isolated
+public upgrade test below. The workflow does not overwrite existing assets.
+This is also the supported publication route when a connector can edit GitHub
+metadata but cannot authenticate binary uploads to `uploads.github.com`.
+
 ## Isolated upgrade check
 
 ```sh
