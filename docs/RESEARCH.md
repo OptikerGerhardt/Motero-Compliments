@@ -25,3 +25,23 @@ Die private Reader-/PDF.js-Anbindung ist versionsabhängig. Bei einem Analysefeh
 wird nicht bei jedem Scrollen erneut analysiert; eine Einstellungsänderung erlaubt
 einen neuen Versuch. Dateien werden nie geschrieben. Deaktivieren entfernt
 Ereignislistener, Beobachter, Dialoge und Ansichtsänderungen.
+
+## Native UI and permission regression (0.2.0)
+
+- [MDN: exportFunction](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts/exportFunction)
+  documents that foreign-owned callback arguments are rejected by default.
+  Reader/observer notifications now explicitly permit the call but discard all
+  supplied arguments and expose no return value. No TLS or PDF security setting
+  is changed. A real Firefox/Zotero compartment test covers both old and new paths.
+- [Jasminum issue 396](https://github.com/l0o0/jasminum/issues/396) reports a custom
+  bookmark tab breaking the return to native Outline and missing during reader
+  restoration. Our tab owns only its additional panel and visibility class;
+  native pane selection/data are retained. Repeated Outline switching and
+  enable/disable restoration are explicit native regressions.
+- [Zotero-Neo issue 133](https://github.com/zhongyangchuwu/Zotero-Neo/issues/133)
+  similarly calls for enhancing native navigation rather than another overlay.
+- Appearance controls reuse native popup groups, switches and theme colors.
+  Sidebar flags use Motero's original silhouette as line art; PDF markers use
+  the original filled silhouette at 25% opacity. A per-page drawing adapter hides
+  only Motero's sticky-note glyph and is removed on disable. Annotation records,
+  coordinates, ordinary notes and stored PDF bytes are not rewritten.

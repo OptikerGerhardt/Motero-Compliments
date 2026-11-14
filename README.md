@@ -5,7 +5,8 @@ Lesezeichen im integrierten Reader. PDF-Dateien bleiben unverändert.
 
 ## Installation
 
-`dist/motero-compliments-0.1.0.xpi` in Zotero unter **Werkzeuge → Plugins →
+[Aktuelles XPI herunterladen](https://github.com/OptikerGerhardt/Motero-Compliments/releases/latest)
+und in Zotero unter **Werkzeuge → Plugins →
 Zahnrad → Plugin aus Datei installieren…** auswählen. Anschließend ein PDF öffnen.
 
 Das Manifest erlaubt Zotero 7–10. Der tatsächliche Desktop-Teststand steht in
@@ -14,22 +15,27 @@ nicht automatisch verifiziert.
 
 ## Bedienung
 
-- **Motero** in der PDF-Werkzeugleiste öffnet die Einstellungen und Lesezeichenliste.
+- **Aa → PDF-Zuschnitt** enthält die Zuschnitt-Einstellungen direkt im nativen
+  Erscheinungsbild-Menü. Es gibt keine zusätzliche Motero-Werkzeugleiste.
 - **Automatisch** erkennt Textkörper, Kopf-/Fußzeilen und Marginalien mit Moteros
   Leserlogik, einschließlich Scans und lokaler Layoutanalyse. Die Option
   **Marginalien beibehalten** erhält die seitlichen Randnotizen.
 - **Breite / Höhe / Ganze Seite** passt den zugeschnittenen Ausschnitt an.
   **Rand (%)** gibt bei automatischem Zuschnitt zusätzlichen Abstand.
-- **Manuellen Rahmen bearbeiten…** zeigt eine Vorschau mit verschiebbarem Rahmen,
+- **Rahmen bearbeiten…** zeigt eine Vorschau mit verschiebbarem Rahmen,
   acht Griffen und Prozentfeldern. Pfeiltasten verschieben den fokussierten Rahmen,
   Umschalt vergrößert den Schritt. Der Rahmen gilt für **alle**, **ungerade** oder
   **gerade** PDF-Seiten, unabhängig von gedruckten Seitennummern. Ein neuer
   Alle-Seiten-Rahmen ersetzt die beiden Ausnahmen. Abbrechen verwirft die Bearbeitung.
-- **Originalansicht umschalten** zeigt vorübergehend die vollständigen Seiten;
-  gespeicherte Rahmen bleiben erhalten. **Zuschnitte zurücksetzen** löscht sie.
-- Das **Fähnchen** in der Werkzeugleiste oder oben rechts auf einer PDF-Seite
-  setzt bzw. entfernt ein Lesezeichen. Im Motero-Dialog lassen sich Lesezeichen
-  filtern, anspringen und löschen. Gewöhnliche schwarze Notizen zählen nicht dazu.
+- **Originalansicht** zeigt vorübergehend die vollständigen Seiten;
+  gespeicherte Rahmen bleiben erhalten. **Zurücksetzen** löscht sie.
+- **Oben rechts im sichtbaren PDF-Ausschnitt hovern** zeigt den Lesezeichen-Schalter.
+  Ein gespeichertes Lesezeichen bleibt als transparente Motero-Flagge sichtbar;
+  die Klickschaltfläche erscheint erst beim Überfahren oder Tastaturfokus.
+- Der **Fähnchen-Tab links neben Outline** öffnet die Lesezeichen in Zoteros
+  Sidebar: filtern, direkt zur Seite springen und löschen. Gewöhnliche schwarze
+  Notizen zählen nicht dazu. Zurück zu Outline/Annotationen/Vorschaubildern über
+  deren unveränderte native Schaltflächen wechseln.
 
 Zuschnitt und Modi werden lokal pro Bibliothek und Anhang gespeichert.
 Lesezeichen sind normale Zotero-Notizannotationen mit `Bookmark ·` bzw.
@@ -38,6 +44,8 @@ schreibgeschützte Annotationen werden nicht verändert. Zotero übernimmt deren
 normale Synchronisierung. Es werden keine PDF-Inhaltsverzeichnisse bearbeitet.
 
 ## Entwicklung
+
+![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.2.0.png)
 
 Node.js 22+, npm und Python 3. Keine Laufzeit-Abhängigkeiten oder externen Dienste.
 
@@ -50,8 +58,9 @@ python3 scripts/test-zotero.py /absoluter/pfad/zu/zotero
 
 Der letzte Befehl startet das fertige XPI in einem neuen temporären Profil mit
 synthetischem PDF und eigener Datenbank. Persönliche Profile bleiben unberührt.
-`dist/` ist generiert und nicht eingecheckt. Automatische Updates sind noch nicht
-veröffentlicht (`update.json` enthält keine Releases).
+`dist/` ist generiert und nicht eingecheckt. Neue Versionen kommen über Zoteros
+eingebaute Plugin-Updates; die veröffentlichte `update.json` bindet jede
+Release-Datei an ihren SHA-256. [Release-/Update-Verfahren](docs/RELEASING.md).
 
 [Recherche und Entscheidungen](docs/RESEARCH.md) ·
 [Tests und Grenzen](docs/TESTING.md) · [Urheberhinweise](NOTICE.md) ·

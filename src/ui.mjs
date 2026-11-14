@@ -1,7 +1,6 @@
-import { isReaderBookmark, pageBookmarks } from './core.mjs';
 import { cropForPage, updateCrop, dragCrop, validCrop } from './vendor/motero/manual-crop.mjs';
 import { rotateReadingBounds } from './vendor/motero/reading-layout.mjs';
-import { waive, contentData } from './pdf.mjs';
+import { waive, contentData } from './bridge.mjs';
 
 export function element(doc, tag, text, attrs = {}) {
   const node = doc.createElement(tag);
@@ -9,11 +8,12 @@ export function element(doc, tag, text, attrs = {}) {
   for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
   return node;
 }
-export function flagIcon(doc) {
+export function flagIcon(doc, outline = false) {
   const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true');
   const path = doc.createElementNS(svg.namespaceURI, 'path');
-  path.setAttribute('d', 'M5 2h14v20l-7-4.5-7 4.5z'); path.setAttribute('fill', 'currentColor');
+  path.setAttribute('d', 'M5 2h14v20l-7-4.5-7 4.5z'); path.setAttribute('fill', outline ? 'none' : 'currentColor');
+  if (outline) { path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '1.5'); path.setAttribute('stroke-linejoin', 'round'); }
   svg.append(path); return svg;
 }
 function button(doc, text, fn) {
@@ -23,9 +23,7 @@ function button(doc, text, fn) {
 function dialog(state, title) {
   const doc = state.doc, node = element(doc, 'dialog');
   node.setAttribute('aria-label', title);
-  node.style.cssText = 'padding:18px;border:1px solid GrayText;border-radius:8px;'
-    + 'background:Canvas;color:CanvasText;max-width:min(620px,90vw);max-height:88vh;overflow:auto;'
-    + 'font:menu;box-shadow:0 4px 25px #0005;';
+  node.className = 'motero-crop-editor';
   const heading = element(doc, 'h2', title);
   heading.style.cssText = 'font-size:16px;margin:0 0 12px'; node.append(heading);
   doc.body.append(node); state.dialogs.add(node);
@@ -42,67 +40,6 @@ function select(doc, values, selected) {
   for (const [value, label] of values) node.append(element(doc, 'option', label, { value }));
   node.value = selected; return node;
 }
-export function showPanel(state) {
-  const t = state.t, doc = state.doc;
-  const panel = dialog(state, 'Motero Compliments');
-  const mode = select(doc, [['off', t('Original', 'Original')],
-    ['automatic', t('Automatisch', 'Automatic')], ['manual', t('Manuell', 'Manual')]], state.options.mode);
-  const fit = select(doc, [['width', t('Breite', 'Width')], ['height', t('Höhe', 'Height')],
-    ['page', t('Ganze Seite', 'Whole page')]], state.options.fit);
-  const margin = element(doc, 'input', undefined, { type: 'number', min: '0', max: '15', step: '.5' });
-  margin.value = String(state.options.margin * 100); margin.style.width = '65px';
-  const marginalia = element(doc, 'input', undefined, { type: 'checkbox' });
-  marginalia.checked = state.options.includeMarginalia;
-  const labeled = (label, control) => { const node = element(doc, 'label', label + ' '); node.append(control); return node; };
-  panel.append(row(doc, labeled(t('Zuschnitt', 'Crop'), mode), labeled(t('Anpassen', 'Fit'), fit)),
-    row(doc, labeled(t('Rand (%)', 'Margin (%)'), margin)),
-    row(doc, labeled(t('Marginalien beibehalten', 'Keep marginal notes'), marginalia)));
-  const status = element(doc, 'p', '', { role: 'status' }); panel.append(status);
-  const apply = () => {
-    if (!margin.reportValidity()) return;
-    state.change({ ...state.options, mode: mode.value, fit: fit.value,
-      margin: Number(margin.value) / 100, includeMarginalia: marginalia.checked });
-    status.textContent = t('Gespeichert. Automatische Analyse läuft bei Bedarf.', 'Saved. Automatic analysis runs as needed.');
-  };
-  panel.append(row(doc, button(doc, t('Anwenden', 'Apply'), apply),
-    button(doc, t('Manuellen Rahmen bearbeiten…', 'Edit manual frame…'), () => {
-      panel.close(); showEditor(state).catch(error => state.error(error));
-    }), button(doc, t('Zuschnitte zurücksetzen', 'Reset crops'), () => {
-      state.change({ ...state.options, mode: 'off', crops: {} }); panel.close();
-    })));
-  const heading = element(doc, 'h3', t('Lesezeichen', 'Bookmarks'));
-  panel.append(heading);
-  const filter = element(doc, 'input', undefined, { type: 'search', placeholder: t('Lesezeichen filtern', 'Filter bookmarks'),
-    'aria-label': t('Lesezeichen filtern', 'Filter bookmarks') });
-  const list = element(doc, 'div'); list.style.cssText = 'max-height:220px;overflow:auto';
-  const render = () => {
-    list.replaceChildren();
-    const query = filter.value.toLocaleLowerCase();
-    const bookmarks = state.annotations().filter(isReaderBookmark).sort((a, b) => a.sortIndex.localeCompare(b.sortIndex));
-    for (const mark of bookmarks.filter(a => `${a.pageLabel} ${a.comment}`.toLocaleLowerCase().includes(query))) {
-      const go = button(doc, `${t('Seite', 'Page')} ${mark.pageLabel || mark.position.pageIndex + 1} · ${mark.comment}`, () => {
-        state.reader.navigate({ annotationID: mark.id }); panel.close();
-      });
-      go.style.cssText = 'flex:1;text-align:start;white-space:normal';
-      const remove = button(doc, t('Löschen', 'Delete'), () => {
-        state.removeBookmark(mark.id).then(render).catch(error => state.error(error));
-      });
-      remove.disabled = !state.canEdit() || mark.readOnly;
-      list.append(row(doc, go, remove));
-    }
-    if (!list.childElementCount) list.append(element(doc, 'p', t('Keine Lesezeichen.', 'No bookmarks.')));
-  };
-  filter.addEventListener('input', render);
-  panel.append(filter, list, row(doc,
-    button(doc, t('Lesezeichen auf aktueller Seite umschalten', 'Toggle bookmark on current page'), () => {
-      state.toggleBookmark().then(render).catch(error => state.error(error));
-    }), button(doc, t('Originalansicht umschalten', 'Toggle original view'), () => state.togglePeek()),
-    button(doc, t('Schließen', 'Close'), () => panel.close())));
-  state.renderList = render;
-  panel.addEventListener('close', () => { if (state.renderList === render) state.renderList = null; });
-  render(); panel.showModal();
-}
-
 export async function showEditor(state) {
   const t = state.t, doc = state.doc, entry = state.activeView();
   if (!entry) throw new Error(t('PDF-Ansicht ist noch nicht bereit.', 'PDF view is not ready.'));

@@ -2,11 +2,10 @@ import { getReadingSamples, getReadingTextLines, buildReadingModel, getReadingBo
   localReadingPages, buildReadingProfiles, resolveReadingBounds, rotateReadingBounds
 } from './vendor/motero/reading-layout.mjs';
 import { compactReadingImage } from './vendor/motero/reading-image.mjs';
-import { cropForPage, paddedBounds } from './core.mjs';
-
-export const waive = value => Components.utils.waiveXrays(value);
-export const contentData = (win, value) => waive(Components.utils.cloneInto(value, win));
-export const exported = (win, fn) => Components.utils.exportFunction(fn, win);
+import { cropForPage, paddedBounds, pageBookmarks, isReaderBookmark } from './core.mjs';
+import { waive, contentData, signal, drawingHook } from './bridge.mjs';
+import { PDF_CSS } from './styles.mjs';
+import { flagIcon } from './ui.mjs';
 const FULL = [0, 0, 1, 1];
 
 export class Analysis {
@@ -100,12 +99,10 @@ export class PDFView {
     this.bounds = new Map();
     this.busHandlers = [];
     this.saved = new Map();
+    this.noteHooks = new Map();
     this.generation = 0;
     this.style = this.win.document.createElement('style');
-    this.style.textContent = '.motero-page-flag{position:absolute;z-index:20;width:24px;height:28px;'
-      + 'padding:2px;border:0;background:transparent;color:#000;cursor:pointer;opacity:.45}'
-      + '.motero-page-flag[aria-pressed="true"],.motero-page-flag:hover{opacity:1}'
-      + '.motero-page-flag svg{width:100%;height:100%;pointer-events:none}';
+    this.style.textContent = PDF_CSS;
     this.win.document.head.append(this.style);
     for (const name of ['pagerendered', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged']) {
       this.on(name, () => this.schedule());
@@ -113,7 +110,7 @@ export class PDFView {
     this.on('pagechanging', () => { this.schedule(true); state.updateButtons(); });
     this.scroll = () => this.schedule();
     this.viewer.container.addEventListener('scroll', this.scroll);
-    this.resize = new this.win.ResizeObserver(exported(this.win, () => this.schedule(true)));
+    this.resize = new this.win.ResizeObserver(signal(this.win, () => this.schedule(true)));
     this.resize.observe(this.viewer.container);
     this.unload = () => this.destroy();
     this.win.addEventListener('unload', this.unload);
@@ -121,7 +118,7 @@ export class PDFView {
     this.schedule(true);
   }
   on(name, fn) {
-    const handler = exported(this.win, fn);
+    const handler = signal(this.win, fn);
     this.app.eventBus.on(name, handler);
     this.busHandlers.push([name, handler]);
   }
@@ -184,6 +181,7 @@ export class PDFView {
   }
   applyPages() {
     const enabled = this.state.options.mode !== 'off' && !this.state.peek;
+    this.hideNativeBookmarkNotes();
     for (let i = 0; i < this.viewer.pagesCount; i++) {
       const page = waive(this.viewer.getPageView(i));
       if (!page?.div) continue;
@@ -208,14 +206,44 @@ export class PDFView {
       }
       // Add the shortcut only to pages PDF.js has actually attached.
       if (!div.isConnected || !page.pdfPage) continue;
-      let flag = div.querySelector('.motero-page-flag');
-      if (!flag) {
-        flag = this.state.flagButton(this.win.document, i);
-        flag.className = 'motero-page-flag'; div.append(flag);
+      let corner = div.querySelector('.motero-page-corner');
+      if (!corner) {
+        corner = this.win.document.createElement('div'); corner.className = 'motero-page-corner';
+        const marker = flagIcon(this.win.document); marker.classList.add('motero-bookmark-marker');
+        const toggle = this.state.flagButton(this.win.document, i); toggle.className = 'motero-page-toggle';
+        corner.append(marker, toggle); div.append(corner);
       }
-      flag.style.top = `${trims[0] + 4}px`;
-      flag.style.right = `${trims[1] + 4}px`;
-      this.state.updateFlag(flag, i);
+      corner.style.top = `${trims[0] + 4}px`;
+      corner.style.right = `${trims[1] + 4}px`;
+      corner.style.width = `${Math.max(1, Math.min(40, (b[2] - b[0]) * w - 8))}px`;
+      corner.style.height = `${Math.max(1, Math.min(40, (b[3] - b[1]) * h - 8))}px`;
+      const bookmarks = pageBookmarks(this.state.annotations(), i);
+      const marker = corner.querySelector('.motero-bookmark-marker');
+      marker.style.display = bookmarks.length ? '' : 'none';
+      marker.style.color = bookmarks[0]?.color || '#000000';
+      this.state.updateFlag(corner.querySelector('button'), i);
+    }
+  }
+  hideNativeBookmarkNotes() {
+    const current = new Set(Array.from(this.view._pages || [], waive));
+    for (const [page, { original, hook, own }] of this.noteHooks) {
+      if (current.has(page)) continue;
+      if (waive(page._pushNote) === waive(hook)) {
+        if (own) page._pushNote = original; else delete page._pushNote;
+      }
+      this.noteHooks.delete(page);
+    }
+    for (const page of current) {
+      if (this.noteHooks.has(page) || typeof page._pushNote !== 'function') continue;
+      const original = page._pushNote;
+      const own = Object.hasOwn(page, '_pushNote');
+      const hook = drawingHook(this.win, (items, annotation) => {
+        const mark = waive(annotation);
+        if (this.closed || !isReaderBookmark(mark)) original.call(page, waive(items), mark);
+      });
+      page._pushNote = hook;
+      this.noteHooks.set(page, { original, hook, own });
+      page.render();
     }
   }
   fit(index) {
@@ -249,8 +277,14 @@ export class PDFView {
       for (const [key, [value, priority]] of Object.entries(original)) {
         if (value) div.style.setProperty(key, value, priority); else div.style.removeProperty(key);
       }
-      div.querySelector('.motero-page-flag')?.remove();
+      div.querySelector('.motero-page-corner')?.remove();
     }
+    for (const [page, { original, hook, own }] of this.noteHooks) {
+      if (waive(page._pushNote) !== waive(hook)) continue; // Another extension now owns it.
+      if (own) page._pushNote = original; else delete page._pushNote;
+      if (!this.view._destroyed) page.render();
+    }
+    this.noteHooks.clear();
     this.saved.clear(); this.restoreScale(); this.style.remove();
   }
 }

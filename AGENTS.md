@@ -10,5 +10,6 @@ Korrektheit, Codequalität und ausreichende Tests haben Vorrang vor Tokenersparn
 - Ändere nur aufgabenrelevanten Code und bewahre bestehende Änderungen.
 - Teste gezielt, ohne notwendige Prüfungen auszulassen.
 - Halte wichtige Architekturinformationen und Projekterkenntnisse hier kompakt und aktuell.
+- Halte GitHub nachvollziehbar: fokussierte Commits, Issues/PRs, Changelog und versionierte Releases; nie bestehende Release-Assets überschreiben. Neue Releases mit `npm run release:prepare` vorbereiten und `update.json` samt SHA-256 veröffentlichen.
 
 Desktop-Plugin: `src/`; originale Motero-Logik: `src/vendor/motero/` (AGPLv3, `COPYING`). Zuschnitt nur als lokale Ansicht; Lesezeichen als native Notizannotationen. Recherche/Architektur: `docs/RESEARCH.md`. Prüfen: `npm test`, `npm run build`; Desktop-Test: `scripts/test-zotero.py` (isoliertes Profil).
