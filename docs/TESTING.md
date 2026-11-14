@@ -50,3 +50,12 @@ TLS-Prüfung bleibt aktiv. Persönliche Zotero-Profile bleiben unberührt.
 
 Die Berichte zu [0.2.0](zotero-10.0.8.json) und zum öffentlichen
 [0.1.0→0.2.0-Update](zotero-upgrade-0.1.0-to-0.2.0.json) bleiben für die Historie erhalten.
+
+## Öffentlicher Update-Test 0.2.0→0.2.1
+
+Nach Veröffentlichung hat Zotero das unveränderte öffentliche 0.2.0-XPI über den
+eingebauten Updater auf 0.2.1 aktualisiert: Feed-Erkennung, Download, Hashprüfung
+und Aktivierung erfolgreich. Danach bestanden alle **58 Prüfungen** einschließlich
+des 64-Seiten-Szenarios, der Desktop-Vorbereitung und beider Reset-Zoom-Fälle.
+[Bericht](zotero-upgrade-0.2.0-to-0.2.1.json). Das veröffentlichte Asset wurde
+nicht ersetzt.
