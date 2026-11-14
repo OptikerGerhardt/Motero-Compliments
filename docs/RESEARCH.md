@@ -1,0 +1,27 @@
+# Recherche und Architektur
+
+Stand: 14.11.2026. Referenz: Motero main
+`7d38abdbe28ef9cedbedf82d8e743775a1c0b756`, Reader
+`6114aeb26daf02104c9757423183994b31df27e9`.
+
+| Quelle | Ergebnis / Verwendung |
+| --- | --- |
+| [Motero](https://github.com/OptikerGerhardt/Motero), Reader-Branch | Originale Erkennungs-, Layout-, Bild-, Rahmen- und Lesezeichenlogik samt Regressionstests unter `src/vendor/motero/` und `test/vendor/`. Keine Android-UI oder PDF.js-Version übernommen. |
+| [Crop to Margin](https://github.com/waelitani/crop-to-margin) | Existierender Desktop-Ansatz: Seiten clippen und unsichtbare Ränder aus dem Layout nehmen; PDF-/Annotationskoordinaten erhalten. Cross-compartment-Zugriff und Split-Views berücksichtigt. Implementierung hier eigenständig. |
+| [Zotero PDF Auto Crop](https://github.com/gjjisadog/zotero-pdf-auto-crop) | Alternative mit CropBox-Änderung der Datei, Sicherheitsabstand, Rotation und Schutz vor Dateikonflikten. Für Moteros lokale Ansicht nicht verwendet. Verweist auf die unabhängige Arbeit [pdfCropMargins](https://github.com/abarker/pdfCropMargins). |
+| [Desktop-Cropping im Forum](https://forums.zotero.org/discussion/105583/feature-suggestion-pdf-cropping-on-mac-desktops) | Wunsch nach Skim-artigem, nicht destruktivem Zuschnitt; bestätigt die Trennung von Datei und Ansicht. |
+| [Lesezeichen-Diskussion](https://forums.zotero.org/discussion/comment/509959#Comment_509959) | Unterscheidet Lesepositionen von PDF-Outlines. Annotationen ermöglichen native Speicherung; Hinweise auf Farb-/Tag-Lösungen und problematische Einzeltasten-Shortcuts beim Kommentieren. Deshalb semantischer Motero-Marker, explizite Schaltflächen und eigene Filterliste. |
+| [Actions & Tags, Diskussion 586](https://github.com/windingwind/zotero-actions-tags/discussions/586), [Reading Flow](https://github.com/Moonweave-Research/zotero-reading-flow) | Bereits existierende Lesezeichen-/Lesepositionsansätze gefunden. Nicht übernommen: Motero-kompatible Annotationen statt eines zweiten Lesezeichenformats. |
+| [Zotero Reader PR 261](https://github.com/zotero/reader/pull/261) | Verwandte Arbeit zum Spalten-Anpassen per Doppeltipp. Kein Ersatz für persistente manuelle Rahmen und Lesezeichen; hier keine Spalten-/SmartScroll-Funktion. Die PR-Suche nach Bookmark ergab keinen passenden Reader-PR. |
+| [Offizielles Pluginbeispiel](https://github.com/zotero/make-it-red), [Reader-Anbindung](https://github.com/zotero/zotero/blob/main/chrome/content/zotero/xpcom/reader.js) | Bootstrap-Lebenszyklus, Reader-Ereignisse, native Annotationsspeicherung und Cleanup. |
+
+`plugin.mjs` verbindet Zotero mit Reader-Zuständen; `pdf.mjs` analysiert begrenzt
+und rendert Ansichtszuschnitte; `ui.mjs` enthält Dialoge und Rahmeneditor;
+`core.mjs` validiert gespeicherte Daten und erzeugt Lesezeichen. Fremde Texte werden
+nur über `textContent` angezeigt. Es gibt keine Telemetrie oder Netzwerkzugriffe
+im Plugin; lediglich Zoteros normale Plugin-Updateprüfung auf die Manifest-URL.
+
+Die private Reader-/PDF.js-Anbindung ist versionsabhängig. Bei einem Analysefehler
+wird nicht bei jedem Scrollen erneut analysiert; eine Einstellungsänderung erlaubt
+einen neuen Versuch. Dateien werden nie geschrieben. Deaktivieren entfernt
+Ereignislistener, Beobachter, Dialoge und Ansichtsänderungen.

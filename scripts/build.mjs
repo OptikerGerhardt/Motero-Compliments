@@ -1,0 +1,33 @@
+import { build } from 'esbuild';
+import { mkdir, cp, readFile, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+const root = fileURLToPath(new URL('../', import.meta.url));
+process.chdir(root);
+const manifest = JSON.parse(await readFile('addon/manifest.json'));
+const pkg = JSON.parse(await readFile('package.json'));
+if (manifest.version !== pkg.version) throw new Error('Package and manifest versions differ');
+await rm('dist/addon', { recursive: true, force: true });
+await mkdir('dist/addon', { recursive: true });
+await cp('addon', 'dist/addon', { recursive: true });
+await cp('LICENSE', 'dist/addon/LICENSE');
+await cp('COPYING', 'dist/addon/COPYING');
+await cp('NOTICE.md', 'dist/addon/NOTICE.md');
+// Include preferred source form and build/test instructions with the AGPL binary.
+for (const dir of ['src', 'addon', 'scripts', 'test', 'docs']) {
+  await cp(dir, `dist/addon/source/${dir}`, { recursive: true });
+}
+for (const file of ['package.json', 'package-lock.json', 'README.md', 'COPYING', 'LICENSE', 'NOTICE.md']) {
+  await cp(file, `dist/addon/source/${file}`);
+}
+await build({ entryPoints: ['src/plugin.mjs'], outfile: 'dist/addon/motero.js',
+  bundle: true, format: 'iife', globalName: 'Motero', target: 'firefox115',
+  legalComments: 'inline', sourcemap: false });
+const out = `dist/motero-compliments-${manifest.version}.xpi`;
+// Recreate the archive: deleted source files must not survive a rebuild.
+execFileSync('python3', ['-c', `import pathlib,zipfile
+root=pathlib.Path('dist/addon')
+with zipfile.ZipFile('${out}', 'w', zipfile.ZIP_DEFLATED) as z:
+ for p in sorted(root.rglob('*')):
+  if p.is_file(): z.write(p,p.relative_to(root))`], { stdio: 'inherit' });
+console.log(out);

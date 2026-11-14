@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "zotero": "10.0.8",
+  "checks": [
+    "Packaged XPI is installed and active",
+    "Reader toolbar rendered",
+    "Automatic crop hides synthetic white margins",
+    "Cropped content is fitted to available width",
+    "Text layer remains readable after cropping",
+    "Bookmark is a native black note annotation",
+    "Bookmark persisted through native Zotero annotation API",
+    "Page corner shortcut tracks the bookmark",
+    "Second click removes bookmark",
+    "Rapid bookmark toggles serialize correctly",
+    "Bookmark appears in dedicated list",
+    "Bookmark list filters without changing annotation metadata",
+    "Intrinsic PDF rotation is supported",
+    "Bookmark list jumps to its stored annotation",
+    "Bookmark list delete removes the native annotation",
+    "Manual frame supports keyboard adjustment",
+    "Manual odd-page crop persists per attachment",
+    "Crop survives user view rotation",
+    "Temporary original view preserves saved crop settings",
+    "Disabling restores styles and removes page shortcuts",
+    "Re-enabling adopts already open PDF readers",
+    "Saved manual crop is restored after plugin restart",
+    "PDF bytes are unchanged"
+  ]
+}
