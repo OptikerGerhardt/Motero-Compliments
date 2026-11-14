@@ -12,6 +12,17 @@
               "strict_max_version": "10.*"
             }
           }
+        },
+        {
+          "version": "0.2.1",
+          "update_link": "https://github.com/OptikerGerhardt/Motero-Compliments/releases/download/v0.2.1/motero-compliments-0.2.1.xpi",
+          "update_hash": "sha256:4d653c03ee3c3243c9a278e0f760bd705fb0705ada3b98cba0fe0c7972bdd282",
+          "applications": {
+            "zotero": {
+              "strict_min_version": "7.0",
+              "strict_max_version": "10.*"
+            }
+          }
         }
       ]
     }

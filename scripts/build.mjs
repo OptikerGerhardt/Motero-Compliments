@@ -23,6 +23,9 @@ for (const file of ['package.json', 'package-lock.json', 'README.md', 'CHANGELOG
 await build({ entryPoints: ['src/plugin.mjs'], outfile: 'dist/addon/motero.js',
   bundle: true, format: 'iife', globalName: 'Motero', target: 'firefox115',
   legalComments: 'inline', sourcemap: false });
+await build({ entryPoints: ['src/content-analysis.mjs'], outfile: 'dist/addon/analysis.js',
+  bundle: true, format: 'iife', globalName: 'MoteroPageAnalysis', target: 'firefox115',
+  legalComments: 'inline' });
 const out = `dist/motero-compliments-${manifest.version}.xpi`;
 // Recreate the archive: deleted source files must not survive a rebuild.
 execFileSync('python3', ['-c', `import pathlib,zipfile

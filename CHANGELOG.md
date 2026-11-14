@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1
+
+- Fix the automatic-analysis permission failure reproduced with the privately supplied PDF: execute PDF.js raster/text extraction in the PDF window and transfer only cloned data. Errors now identify page and analysis stage.
+- Prepare up to 12 pages ahead and 6 behind for desktop scrolling, with two analysis jobs, foreground priority and a 64-page pixel cache.
+- Make PDF.js visibility/page navigation honor cropped frames while preserving native coordinates.
+- Respect native Reset Zoom and manual zoom through page changes and sidebar resizing; never erase manual crop frames.
+- Match native Appearance typography and aligned controls; remove the separate bold heading.
+- Move the smaller bookmark tab immediately after Outline. Reduce the PDF flag to 14×18 px and increase saved-marker opacity to 65%; keep the toggle hover/focus-only.
+- Verify 111 tests, 56 native checks on a 64-page image/soft-mask fixture, and 9 checks on the privately supplied document. No private document or image was published.
+
 ## 0.2.0
 
 - Integrate PDF cropping into Zotero's Appearance (Aa) popup; remove the separate

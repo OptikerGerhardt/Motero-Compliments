@@ -51,6 +51,7 @@ async function run() {
     const domEvent = (type, options = {}) => new reader._iframeWindow.Event(type,
       Components.utils.cloneInto({ bubbles: true, ...options }, reader._iframeWindow));
     const clickText = (container, text) => {
+      if (text === 'Original view') { container.querySelector('[name=peek]').click(); return; }
       const button = [...container.querySelectorAll('button')].find(n => n.textContent === text);
       if (!button) throw Error('Missing button ' + text); button.click();
     };
@@ -67,7 +68,8 @@ async function run() {
     const toggle = index => corner(index)?.querySelector('button');
     await wait(() => viewer.getPageView(0)?.pdfPage && toggle(0), 'first page corner');
     ok(!doc.querySelector('[data-motero-toolbar]'), 'No standalone Motero toolbar or combined dialog');
-    ok(tab.nextElementSibling.id === 'viewOutline', 'Bookmark tab is immediately before native Outline');
+    ok(tab.previousElementSibling.id === 'viewOutline', 'Bookmark tab is immediately after native Outline');
+    ok(doc.defaultView.getComputedStyle(tab.querySelector('svg')).width === '16px', 'Sidebar flag is sized to a small native icon');
     ok(tab.querySelector('path').getAttribute('fill') === 'none', 'Sidebar uses the outlined Motero flag');
 
     // A system-owned argument passed BY content reproduces Firefox's reported
@@ -93,10 +95,20 @@ async function run() {
 
     const appearance = await openAppearance();
     ok(appearance.closest('.appearance-popup') !== null, 'Cropping is embedded under native Appearance (Aa)');
+    const nativeLabel = appearance.closest('.appearance-popup').querySelector('.group:not(.motero-crop-settings) .option>label');
+    const font = node => doc.defaultView.getComputedStyle(node).font;
+    ok(font(appearance.querySelector('label')) === font(nativeLabel), 'Crop settings use the exact native label font');
+    ok(!appearance.querySelector('h3'), 'Crop settings use native rows instead of a separate bold heading');
     select(appearance, 'fit', 'page'); select(appearance, 'mode', 'automatic'); closeAppearance();
     await wait(() => viewer.getPageView(0).div.style.clipPath.includes('inset('), 'automatic whole-page crop');
     ok(!/^inset\(0px 0px 0px 0px\)$/.test(viewer.getPageView(0).div.style.clipPath), 'Automatic whole-page crop hides white margins');
     ok(!doc.querySelector('[role=alert]'), 'Whole-page fitting has no permission error');
+    ok(!!win.MoteroPageAnalysis, 'Automatic raster/text extraction executes in the PDF window');
+    if (viewer.pagesCount > 20) {
+      await wait(() => Number(viewer.viewer.getAttribute('data-motero-prepared-pages')) >= 13, 'desktop look-ahead preparation');
+      ok(true, 'Desktop prepares twelve pages beyond the visible page');
+      ok(Number(viewer.viewer.getAttribute('data-motero-analysis-cache')) <= 64, 'Analysis pixel cache stays bounded to 64 pages');
+    }
     const textLayer = await wait(() => viewer.getPageView(0).div.querySelector('.textLayer'), 'text layer');
     ok(textLayer.textContent.includes('Synthetic reading'), 'Text layer stays readable after cropping');
     const widthSettings = await openAppearance(); select(widthSettings, 'fit', 'width'); closeAppearance();
@@ -113,7 +125,8 @@ async function run() {
     await wait(() => toggle(0)?.getAttribute('aria-pressed') === 'true', 'page flag state');
     const marker = corner(0).querySelector('.motero-bookmark-marker');
     ok(marker.querySelector('path').getAttribute('d') === 'M5 2h14v20l-7-4.5-7 4.5z', 'Bookmark uses the original Motero flag geometry');
-    ok(Number(win.getComputedStyle(marker).opacity) === .25, 'Saved bookmark is translucent');
+    ok(Number(win.getComputedStyle(marker).opacity) === .65, 'Saved bookmark uses the requested increased opacity');
+    ok(win.getComputedStyle(marker).width === '14px', 'PDF bookmark glyph is smaller');
     ok(Number(win.getComputedStyle(toggle(0)).opacity) === 0, 'Saved bookmark does not expose the toggle outside hover or focus');
     const inspector = Zotero.getMainWindow().InspectorUtils;
     inspector.addPseudoClassLock(corner(0), ':hover');
@@ -157,6 +170,29 @@ async function run() {
     tab.click(); panel.querySelector('.motero-go').click();
     await wait(() => viewer.currentPageNumber === 1, 'sidebar bookmark jump');
     ok(true, 'Bookmark sidebar jumps to the stored page');
+    // Native Reset Zoom must retain ownership across resize/page activity.
+    doc.getElementById('zoomAuto').click();
+    await wait(() => viewer.currentScaleValue === 'page-width', 'native Reset Zoom');
+    const resetValue = viewer.currentScaleValue;
+    await Zotero.Promise.delay(400);
+    internal.toggleSidebar(false); await Zotero.Promise.delay(200); internal.toggleSidebar(true);
+    await Zotero.Promise.delay(400);
+    ok(viewer.currentScaleValue === resetValue, 'Native Reset Zoom survives sidebar resize without plugin refitting');
+    internal.zoomIn(); await Zotero.Promise.delay(200);
+    const userScale = viewer.currentScale;
+    reader.navigate({ pageIndex: 1 }); await wait(() => viewer.currentPageNumber === 2, 'page after manual zoom');
+    await Zotero.Promise.delay(400);
+    ok(Math.abs(viewer.currentScale - userScale) < .001, 'Native manual zoom survives page changes');
+    if (viewer.pagesCount > 40) {
+      for (const index of [8, 24, 40, 16]) {
+        reader.navigate({ pageIndex: index }); await Zotero.Promise.delay(40);
+      }
+      await wait(() => viewer.currentPageNumber === 17 && toggle(16), 'foreground page during rapid navigation');
+      await Zotero.Promise.delay(600);
+      ok(viewer.currentPageNumber === 17, 'Rapid desktop navigation settles on the requested page while preprocessing continues');
+      ok(Math.abs(viewer.currentScale - userScale) < .001, 'Desktop preprocessing does not override user zoom');
+    }
+    reader.navigate({ pageIndex: 0 }); await wait(() => viewer.currentPageNumber === 1, 'return for manual crop');
 
     const manualSettings = await openAppearance(); clickText(manualSettings, 'Edit frame…');
     const editor = await wait(() => doc.querySelector('dialog canvas')?.closest('dialog'), 'manual editor');
@@ -175,6 +211,12 @@ async function run() {
     const saved = JSON.parse(Zotero.Prefs.get(pref, true));
     ok(saved.mode === 'manual' && Math.abs(saved.crops.odd[0] - .13) < .00001 && !saved.crops.even, 'Manual odd-page crop persists exactly per attachment');
     await wait(() => parseFloat(corner(0).style.right) > 10, 'manual corner positioning');
+    const savedManual = Zotero.Prefs.get(pref, true);
+    doc.getElementById('zoomAuto').click();
+    await wait(() => viewer.currentScaleValue === 'page-width', 'Reset Zoom with manual crop');
+    await Zotero.Promise.delay(350);
+    ok(viewer.currentScaleValue === 'page-width' && Zotero.Prefs.get(pref, true) === savedManual,
+      'Reset Zoom preserves manual crop frames and retains the native zoom value');
     ok(JSON.stringify(bookmarks()[0].position) === storedPosition, 'Changing crop never rewrites bookmark annotation coordinates');
     viewer.pagesRotation = 90; await Zotero.Promise.delay(300);
     ok(viewer.getPageView(0).div.style.clipPath.includes('inset('), 'Crop and flag survive user view rotation');
@@ -230,6 +272,8 @@ async function run() {
       readerInfo: Zotero.Reader._readers.map(r => ({ type: r._type,
         outline: !!r._iframeWindow?.document?.getElementById('viewOutline'),
         moteroStyles: r._iframeWindow?.document?.querySelectorAll('[data-motero-style]').length,
+        page: r._internalReader?._primaryView?._iframeWindow?.PDFViewerApplication?.pdfViewer?.currentPageNumber,
+        scale: r._internalReader?._primaryView?._iframeWindow?.PDFViewerApplication?.pdfViewer?.currentScaleValue,
         status: r._iframeWindow?.document?.querySelector('[role=alert]')?.textContent })),
       listeners: Zotero.Reader._registeredListeners.map(x => ({ type: x.type, pluginID: x.pluginID })) };
   }

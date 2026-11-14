@@ -45,3 +45,25 @@ Ereignislistener, Beobachter, Dialoge und Ansichtsänderungen.
   the original filled silhouette at 25% opacity. A per-page drawing adapter hides
   only Motero's sticky-note glyph and is removed on disable. Annotation records,
   coordinates, ordinary notes and stored PDF bytes are not rewritten.
+
+## Automatic extraction and desktop flow (0.2.1)
+
+The supplied private document reproduces the remaining 0.2.0 failure, unlike the
+initial synthetic fixture. PDF.js raster/text extraction now runs entirely in
+its PDF-window realm (`content-analysis.mjs`); only a structured-cloned snapshot
+crosses to the plugin for Motero's geometry analysis. Page, viewport and DOM
+objects no longer cross this analysis boundary. The private document is not
+part of the repository or any published artifact.
+
+The native reset command delegates to `zoomReset()`/`zoomPageWidth()` in Zotero
+Reader. External scale changes now relinquish automatic fitting until an explicit
+crop-setting change, so background preparation cannot undo native zoom. The
+cropped visibility/page-jump adapter follows the same coordinate-plane separation
+as Motero's `cropped-page-layout.mjs`, but runs in the PDF realm. A longer fixture
+caught navigation instability that the original six-page test missed.
+
+Desktop preparation uses 12 forward/6 backward pages, two rendering slots,
+foreground promotion and an LRU of 64 compact pixel snapshots. Look-ahead work
+is replaced as navigation changes and is discarded after settings generations
+change. Native UI font values come from an existing Appearance label; native
+select wrappers and switch classes supply the controls' styling.

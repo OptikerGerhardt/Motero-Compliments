@@ -19,7 +19,11 @@ export class ReaderUI {
     const outline = this.doc.getElementById('viewOutline');
     if (outline && !this.doc.getElementById('viewMoteroBookmarks')) this.attachSidebar(outline);
     const popup = this.doc.querySelector('.appearance-popup');
-    if (popup && !popup.querySelector('[data-motero-crop-settings]')) popup.append(this.cropControls());
+    if (popup && !popup.querySelector('[data-motero-crop-settings]')) {
+      const reference = popup.querySelector('.group .option > label') || popup;
+      this.font = this.doc.defaultView.getComputedStyle(reference).font;
+      popup.append(this.cropControls());
+    }
   }
   setActive(active) {
     this.active = active;
@@ -52,7 +56,7 @@ export class ReaderUI {
       title: t('Lesezeichen', 'Bookmarks'), 'aria-label': t('Lesezeichen', 'Bookmarks') });
     tab.append(flagIcon(doc, true));
     tab.addEventListener('click', () => this.setActive(true));
-    outline.before(tab);
+    outline.after(tab);
     const panel = element(doc, 'div', undefined, { id: 'moteroBookmarksView', role: 'tabpanel',
       'aria-labelledby': tab.id, 'data-motero-owned': '' });
     const search = element(doc, 'div', undefined, { class: 'motero-search' });
@@ -94,35 +98,48 @@ export class ReaderUI {
   cropControls() {
     const doc = this.doc, state = this.state, t = state.t;
     const section = element(doc, 'section', undefined, { class: 'group motero-crop-settings', 'data-motero-crop-settings': '' });
-    section.append(element(doc, 'h3', t('PDF-Zuschnitt', 'PDF cropping')));
+    if (this.font) section.style.font = this.font;
+    section.setAttribute('aria-label', t('PDF-Zuschnitt', 'PDF cropping'));
     const field = (name, title, values, selected) => {
       const row = element(doc, 'div', undefined, { class: 'option' });
-      const label = element(doc, 'label', title);
-      const control = element(doc, 'select', undefined, { name, 'data-tabstop': '1', 'aria-label': title });
+      const label = element(doc, 'label', title, { for: 'motero-' + name });
+      const control = element(doc, 'select', undefined, { id: 'motero-' + name, name, 'data-tabstop': '1', 'aria-label': title });
       for (const [value, text] of values) control.append(element(doc, 'option', text, { value }));
       control.value = selected;
       control.addEventListener('change', () => state.change({ ...state.options, [name]: control.value }));
-      label.append(control); row.append(label); section.append(row); return control;
+      const wrapper = element(doc, 'span', undefined, { class: 'select motero-select' });
+      const chevron = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      chevron.setAttribute('width', '8'); chevron.setAttribute('height', '8'); chevron.setAttribute('viewBox', '0 0 8 8'); chevron.setAttribute('class', 'chevron');
+      const path = doc.createElementNS(chevron.namespaceURI, 'path');
+      path.setAttribute('d', 'M0 2.70711L4 6.70711L8 2.70711L7.29289 2L4 5.29289L0.707107 2L0 2.70711Z'); path.setAttribute('fill', 'currentColor');
+      chevron.append(path); wrapper.append(control, chevron);
+      row.append(label, wrapper); section.append(row); return control;
     };
-    field('mode', t('Zuschnitt ', 'Crop '), [['off', t('Original', 'Original')],
+    field('mode', t('PDF-Zuschnitt', 'PDF cropping'), [['off', t('Original', 'Original')],
       ['automatic', t('Automatisch', 'Automatic')], ['manual', t('Manuell', 'Manual')]], state.options.mode);
-    field('fit', t('Anpassen ', 'Fit '), [['width', t('Breite', 'Width')],
+    field('fit', t('Anpassen', 'Fit'), [['width', t('Breite', 'Width')],
       ['height', t('Höhe', 'Height')], ['page', t('Ganze Seite', 'Whole page')]], state.options.fit);
     const marginRow = element(doc, 'div', undefined, { class: 'option' });
-    const marginLabel = element(doc, 'label', t('Rand', 'Margin'));
+    const marginLabel = element(doc, 'label', t('Rand', 'Margin'), { for: 'motero-margin' });
     const margin = element(doc, 'input', undefined, { type: 'range', min: '0', max: '15', step: '.5',
-      name: 'margin', 'aria-label': t('Rand (%)', 'Margin (%)'), 'data-tabstop': '1' });
+      name: 'margin', id: 'motero-margin', 'aria-label': t('Rand (%)', 'Margin (%)'), 'data-tabstop': '1' });
     margin.value = String(state.options.margin * 100);
     const value = element(doc, 'span', `${margin.value}%`, { class: 'value' });
     margin.addEventListener('input', () => { value.textContent = margin.value + '%'; });
     margin.addEventListener('change', () => state.change({ ...state.options, margin: Number(margin.value) / 100 }));
-    marginLabel.append(margin); marginRow.append(marginLabel, value); section.append(marginRow);
+    const slider = element(doc, 'div', undefined, { class: 'motero-margin-control' });
+    slider.append(margin, value); marginRow.append(marginLabel, slider); section.append(marginRow);
     const marginalRow = element(doc, 'div', undefined, { class: 'option' });
-    const marginalLabel = element(doc, 'label', t('Marginalien beibehalten', 'Keep marginal notes'));
-    const marginal = element(doc, 'input', undefined, { type: 'checkbox', class: 'switch', name: 'includeMarginalia', 'data-tabstop': '1' });
+    const marginalLabel = element(doc, 'label', t('Marginalien beibehalten', 'Keep marginal notes'), { for: 'motero-marginalia' });
+    const marginal = element(doc, 'input', undefined, { id: 'motero-marginalia', type: 'checkbox', class: 'switch', name: 'includeMarginalia', 'data-tabstop': '1' });
     marginal.checked = state.options.includeMarginalia;
     marginal.addEventListener('change', () => state.change({ ...state.options, includeMarginalia: marginal.checked }));
-    marginalLabel.append(marginal); marginalRow.append(marginalLabel); section.append(marginalRow);
+    marginalRow.append(marginalLabel, marginal); section.append(marginalRow);
+    const peekRow = element(doc, 'div', undefined, { class: 'option' });
+    const peekLabel = element(doc, 'label', t('Originalansicht', 'Original view'), { for: 'motero-peek' });
+    const peek = element(doc, 'input', undefined, { id: 'motero-peek', name: 'peek', type: 'checkbox', class: 'switch', 'data-tabstop': '1' });
+    peek.checked = !!state.peek; peek.addEventListener('change', () => state.togglePeek());
+    peekRow.append(peekLabel, peek); section.append(peekRow);
     const actions = element(doc, 'div', undefined, { class: 'motero-actions' });
     const action = (title, fn) => {
       const button = element(doc, 'button', title, { type: 'button', class: 'motero-action', 'data-tabstop': '1' });
@@ -132,7 +149,6 @@ export class ReaderUI {
       this.doc.getElementById('appearance')?.click();
       showEditor(state).catch(error => state.error(error));
     });
-    action(t('Originalansicht', 'Original view'), () => state.togglePeek());
     action(t('Zurücksetzen', 'Reset'), () => {
       state.change({ ...state.options, mode: 'off', crops: {} });
       section.querySelector('[name=mode]').value = 'off';

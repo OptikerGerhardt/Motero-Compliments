@@ -1,10 +1,14 @@
 export const READER_CSS = `
-.motero-crop-settings h3{font-size:inherit;font-weight:600;margin:0}
-.motero-crop-settings select,.motero-crop-settings input{font:inherit;color:inherit}
-.motero-crop-settings select{max-width:175px;border:1px solid var(--fill-quinary);border-radius:4px;background:var(--material-background);padding:3px 5px}
-.motero-crop-settings .motero-actions{display:flex;gap:8px;flex-wrap:wrap}
-.motero-crop-settings .motero-action,.motero-crop-editor button:not(.toolbar-button){border:1px solid var(--fill-quinary);border-radius:4px;background:var(--material-background);color:inherit;padding:4px 8px;font:inherit}
-.motero-crop-settings .motero-action:hover,.motero-crop-editor button:hover{background:var(--fill-quinary)}
+.motero-crop-settings,.motero-crop-settings :is(label,button,input,select,output){font:inherit;color:inherit}
+.motero-crop-settings .motero-select{width:187px;flex:none}
+.motero-crop-settings .motero-select>select{padding-inline-end:20px;color:var(--fill-primary)}
+.motero-crop-settings .motero-margin-control{width:187px;display:flex;align-items:center;gap:8px}
+.motero-crop-settings .motero-margin-control input{min-width:0;flex:1;width:130px}
+.motero-crop-settings .motero-margin-control .value{min-width:28px;text-align:end}
+.motero-crop-settings .motero-actions{display:flex;justify-content:flex-end;gap:8px}
+.motero-crop-settings .motero-action,.motero-crop-editor button:not(.toolbar-button){border:var(--material-border-quarternary);border-radius:5px;background:var(--material-button,var(--material-background));color:inherit;padding:3px 8px;font:inherit}
+.motero-crop-settings .motero-action:hover,.motero-crop-editor button:hover{background:var(--material-mix-quinary,var(--fill-quinary))}
+#viewMoteroBookmarks svg{width:16px;height:16px}
 .appearance-popup{max-height:calc(100vh - 60px);overflow:auto}
 #moteroBookmarksView{display:none;height:100%;flex-direction:column;user-select:none}
 .motero-bookmarks-open #moteroBookmarksView{display:flex}
@@ -24,15 +28,15 @@ export const READER_CSS = `
 .motero-crop-editor{color:var(--fill-primary);background:var(--material-background);border:var(--material-panedivider);border-radius:8px;padding:16px;max-width:min(620px,90vw);max-height:88vh;overflow:auto;font:inherit;box-shadow:0 4px 24px #0004}
 .motero-crop-editor::backdrop{background:#0003}
 .motero-crop-editor input,.motero-crop-editor select{font:inherit;color:inherit;background:var(--material-background);border:1px solid var(--fill-quinary);border-radius:4px;padding:3px}
-.motero-crop-editor h2{font-size:14px;margin:0 0 12px}
+.motero-crop-editor h2{font:inherit;font-weight:600;margin:0 0 12px}
 `;
 
 export const PDF_CSS = `
 .motero-page-corner{position:absolute;z-index:20;pointer-events:none;display:grid;place-items:start end;color:var(--primary-color,#000)}
-.motero-bookmark-marker{width:22px;height:26px;max-width:100%;max-height:100%;opacity:.25;pointer-events:none;margin:4px}
+.motero-bookmark-marker{width:14px;height:18px;max-width:100%;max-height:100%;opacity:.65;pointer-events:none;margin:4px}
 .motero-bookmark-marker[hidden]{display:none}
 .motero-page-toggle{position:absolute;inset:0;width:100%;height:100%;padding:4px;border:0;border-radius:4px;background:transparent;color:inherit;cursor:pointer;opacity:0;pointer-events:auto;display:grid;place-items:start end}
-.motero-page-toggle svg{width:22px;height:26px;pointer-events:none}
+.motero-page-toggle svg{width:14px;height:18px;pointer-events:none}
 .motero-page-corner:hover .motero-page-toggle,.motero-page-toggle:focus-visible{opacity:.7;background:var(--fill-quinary,#8882)}
 .motero-page-toggle:focus-visible{outline:2px solid var(--accent-blue,#3080ff);outline-offset:-2px}
 .motero-page-toggle:disabled{cursor:default}
