@@ -13,6 +13,8 @@ await cp('addon', 'dist/addon', { recursive: true });
 await cp('LICENSE', 'dist/addon/LICENSE');
 await cp('COPYING', 'dist/addon/COPYING');
 await cp('NOTICE.md', 'dist/addon/NOTICE.md');
+await mkdir('dist/addon/licenses', { recursive: true });
+await cp('src/vendor/crop-to-margin/LICENSE', 'dist/addon/licenses/crop-to-margin-MIT.txt');
 // Include preferred source form and build/test instructions with the AGPL binary.
 for (const dir of ['src', 'addon', 'scripts', 'test', 'docs']) {
   await cp(dir, `dist/addon/source/${dir}`, { recursive: true, filter: path => !path.includes('__pycache__') });

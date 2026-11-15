@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+- Replace crop/fit dropdowns and include/exclude switches with native Appearance segmented buttons, matching fonts and 20×20 line icons.
+- Make Original/Automatic/Manual a single synchronized mode, eliminating the conflicting Original view state; prevent broad document profiles from erasing useful automatic body crops.
+- Apply pixel crop insets after fitting the current viewport, avoiding stale-scale crops during automatic zoom changes.
+- Add independent include/exclude choices for side edition/line references and general marginal notes. Stable profiles cannot reintroduce excluded reference columns.
+- Reuse Crop to Margin's MIT ink detector as a conservative fallback for tinted text-bearing pages; retain Motero's semantic analysis and full license attribution.
+- Move bookmark filtering to the right-hand sidebar magnifier with an expanding search field; keep the native-sized flag immediately after Outline.
+- Enlarge the PDF flag threefold to 42×54 px, retaining 65% saved-marker opacity and hover/focus-only toggling.
+- Remove plugin cropping/bookmark entries from the reader context menu; preserve native Reset Zoom, manual frames, desktop preparation and original PDF bytes.
+- Verify 118 logic tests, 64 native checks and 13 content-free private-document checks in Zotero 10.0.8 on Linux.
+
 ## 0.2.1
 
 - Fix the automatic-analysis permission failure reproduced with the privately supplied PDF: execute PDF.js raster/text extraction in the PDF window and transfer only cloned data. Errors now identify page and analysis stage.

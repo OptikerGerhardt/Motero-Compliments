@@ -20,7 +20,7 @@ export class ReaderState {
     catch { this.options = settings({}); }
     this.views = new Map(); this.dialogs = new Set(); this.buttons = new Set();
     this.queue = new SerialQueue();
-    this.closed = false; this.peek = false;
+    this.closed = false;
     this.unload = () => { this.destroy(); states.delete(reader); };
     doc.defaultView.addEventListener('unload', this.unload);
     this.observer = new doc.defaultView.MutationObserver(signal(doc.defaultView, () => this.discover()));
@@ -51,23 +51,17 @@ export class ReaderState {
   annotations() { return this.internal._state.annotations || []; }
   change(value) {
     if (this.closed) return;
-    this.options = settings(value); this.peek = false;
+    this.options = settings(value);
     Zotero.Prefs.set(this.key, JSON.stringify(this.options), true);
     // Other tabs/windows for this attachment share the saved view settings.
     for (const state of states.values()) {
       if (state.key !== this.key) continue;
-      state.options = this.options; state.peek = false;
+      state.options = this.options;
+      state.ui?.syncControls();
       for (const entry of state.views.values()) {
         if (this.options.mode === 'off') entry.restoreScale();
         entry.invalidate();
       }
-    }
-  }
-  togglePeek() {
-    this.peek = !this.peek;
-    for (const view of this.views.values()) {
-      if (this.peek) view.restoreScale();
-      view.invalidate();
     }
   }
   flagButton(doc, index) {
@@ -180,13 +174,6 @@ export async function startup({ id, rootURI }) {
   active = true; pluginID = id; pluginRoot = rootURI;
   const register = (type, fn) => { Zotero.Reader.registerEventListener(type, fn, id); bindings.push([type, fn]); };
   register('renderToolbar', toolbar);
-  register('createViewContextMenu', ({ reader, doc, append }) => {
-    const state = adopt(reader, doc);
-    if (state) {
-      append({ label: t('PDF-Zuschnitt…', 'PDF cropping…'), onCommand: () => state.ui.openAppearance() });
-      append({ label: t('Lesezeichen', 'Bookmarks'), onCommand: () => state.ui.openBookmarks() });
-    }
-  });
   // Plugin enables/upgrades must also adopt already open tabs and reader windows.
   for (const reader of Zotero.Reader._readers) {
     await reader._initPromise;

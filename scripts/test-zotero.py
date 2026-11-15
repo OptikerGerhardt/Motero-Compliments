@@ -44,6 +44,7 @@ def fixture(path, rich=False):
         for y in range(170, 700, 24):
             lines.append(f"BT /F1 12 Tf {x} {y} Td (Synthetic reading content for Zotero crop tests.) Tj ET")
         lines += [f"BT /F1 9 Tf 300 70 Td ({i + 1}) Tj ET", f"0 g {x} 135 250 10 re f"]
+        lines.append("BT /F1 8 Tf 530 430 Td (A 123) Tj ET")
         if rich:
             lines.append("q .8 0 0 .8 0 0 cm 100 0 0 100 200 300 cm /Scan Do Q")
         stream = "\n".join(lines).encode()

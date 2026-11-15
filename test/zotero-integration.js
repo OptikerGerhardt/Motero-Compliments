@@ -51,7 +51,7 @@ async function run() {
     const domEvent = (type, options = {}) => new reader._iframeWindow.Event(type,
       Components.utils.cloneInto({ bubbles: true, ...options }, reader._iframeWindow));
     const clickText = (container, text) => {
-      if (text === 'Original view') { container.querySelector('[name=peek]').click(); return; }
+      if (text === 'Original view') { container.querySelector('[data-motero-choice=mode] [data-value=off]').click(); return; }
       const button = [...container.querySelectorAll('button')].find(n => n.textContent === text);
       if (!button) throw Error('Missing button ' + text); button.click();
     };
@@ -61,7 +61,7 @@ async function run() {
     };
     const closeAppearance = () => { if (doc.querySelector('.appearance-popup')) doc.getElementById('appearance').click(); };
     const select = (container, name, value) => {
-      const node = container.querySelector(`[name=${name}]`); node.value = value; node.dispatchEvent(domEvent('change'));
+      container.querySelector(`[data-motero-choice="${name}"] button[data-value="${value}"]`).click();
     };
     const bookmarks = () => internal._state.annotations.filter(a => /^(Bookmark|Lesezeichen)\s*·/.test(a.comment));
     const corner = index => viewer.getPageView(index).div.querySelector('.motero-page-corner');
@@ -69,7 +69,7 @@ async function run() {
     await wait(() => viewer.getPageView(0)?.pdfPage && toggle(0), 'first page corner');
     ok(!doc.querySelector('[data-motero-toolbar]'), 'No standalone Motero toolbar or combined dialog');
     ok(tab.previousElementSibling.id === 'viewOutline', 'Bookmark tab is immediately after native Outline');
-    ok(doc.defaultView.getComputedStyle(tab.querySelector('svg')).width === '16px', 'Sidebar flag is sized to a small native icon');
+    ok(doc.defaultView.getComputedStyle(tab.querySelector('svg')).width === '20px', 'Sidebar flag matches the native 20px icon grid');
     ok(tab.querySelector('path').getAttribute('fill') === 'none', 'Sidebar uses the outlined Motero flag');
 
     // A system-owned argument passed BY content reproduces Firefox's reported
@@ -95,6 +95,12 @@ async function run() {
 
     const appearance = await openAppearance();
     ok(appearance.closest('.appearance-popup') !== null, 'Cropping is embedded under native Appearance (Aa)');
+    ok(!appearance.querySelector('select') && appearance.querySelectorAll('.split-toggle').length === 4,
+      'Crop, fit, marginal-note and reference choices use native segmented buttons');
+    ok(!appearance.querySelector('[name=peek]'), 'There is no second conflicting Original view state');
+    ok(!Zotero.Reader._registeredListeners.some(x => x.pluginID === 'motero-compliments@optikergerhardt' && x.type === 'createViewContextMenu'),
+      'Plugin registers no crop or bookmark entries in the reader context menu');
+
     const nativeLabel = appearance.closest('.appearance-popup').querySelector('.group:not(.motero-crop-settings) .option>label');
     const font = node => doc.defaultView.getComputedStyle(node).font;
     ok(font(appearance.querySelector('label')) === font(nativeLabel), 'Crop settings use the exact native label font');
@@ -103,6 +109,32 @@ async function run() {
     await wait(() => viewer.getPageView(0).div.style.clipPath.includes('inset('), 'automatic whole-page crop');
     ok(!/^inset\(0px 0px 0px 0px\)$/.test(viewer.getPageView(0).div.style.clipPath), 'Automatic whole-page crop hides white margins');
     ok(!doc.querySelector('[role=alert]'), 'Whole-page fitting has no permission error');
+    const modeButtons = (await openAppearance()).querySelectorAll('[data-motero-choice=mode] button');
+    ok([...modeButtons].filter(b => b.getAttribute('aria-pressed') === 'true').length === 1
+      && modeButtons[1].getAttribute('aria-pressed') === 'true', 'Automatic selection stays synchronized and excludes Original');
+    closeAppearance();
+
+    const cropWidth = () => {
+      const page = viewer.getPageView(0), values = page.div.style.clipPath.match(/[\d.]+(?=px)/g)?.map(Number);
+      return values ? 1 - (values[1] + values[3]) / page.viewport.width : 1;
+    };
+    const changeReferencePolicy = async value => {
+      const generation = viewer.viewer.getAttribute('data-motero-generation');
+      select(await openAppearance(), 'includeReferences', value); closeAppearance();
+      await wait(() => viewer.viewer.getAttribute('data-motero-generation') !== generation, 'reference policy applied');
+      let last, stable = Date.now();
+      await wait(() => {
+        const width = cropWidth();
+        if (width !== last) { last = width; stable = Date.now(); }
+        return Date.now() - stable > 350;
+      }, 'reference crop and viewport settled');
+      return cropWidth();
+    };
+    const excludedWidth = cropWidth();
+    const includedWidth = await changeReferencePolicy(true);
+    ok(includedWidth > excludedWidth + .05, 'Including a synthetic edition reference widens the visible native crop');
+    ok(await changeReferencePolicy(false) < includedWidth - .05, 'Excluding the edition reference narrows the visible native crop again');
+
     ok(!!win.MoteroPageAnalysis, 'Automatic raster/text extraction executes in the PDF window');
     if (viewer.pagesCount > 20) {
       await wait(() => Number(viewer.viewer.getAttribute('data-motero-prepared-pages')) >= 13, 'desktop look-ahead preparation');
@@ -126,7 +158,7 @@ async function run() {
     const marker = corner(0).querySelector('.motero-bookmark-marker');
     ok(marker.querySelector('path').getAttribute('d') === 'M5 2h14v20l-7-4.5-7 4.5z', 'Bookmark uses the original Motero flag geometry');
     ok(Number(win.getComputedStyle(marker).opacity) === .65, 'Saved bookmark uses the requested increased opacity');
-    ok(win.getComputedStyle(marker).width === '14px', 'PDF bookmark glyph is smaller');
+    ok(win.getComputedStyle(marker).width === '42px' && win.getComputedStyle(marker).height === '54px', 'PDF bookmark glyph is exactly three times larger');
     ok(Number(win.getComputedStyle(toggle(0)).opacity) === 0, 'Saved bookmark does not expose the toggle outside hover or focus');
     const inspector = Zotero.getMainWindow().InspectorUtils;
     inspector.addPseudoClassLock(corner(0), ':hover');
@@ -153,7 +185,11 @@ async function run() {
     const panel = doc.getElementById('moteroBookmarksView');
     ok(tab.getAttribute('aria-selected') === 'true' && doc.body.classList.contains('motero-bookmarks-open'), 'Bookmark list opens as a native sidebar tab');
     ok(panel.querySelectorAll('[data-motero-bookmark-id]').length === 1, 'Bookmark sidebar lists only semantic bookmarks');
-    const filter = panel.querySelector('input'); filter.value = 'no match'; filter.dispatchEvent(domEvent('input'));
+    const search = doc.querySelector('.sidebar-toolbar .motero-search');
+    ok(search && !search.classList.contains('expanded') && !panel.querySelector('input'), 'Bookmark filtering starts as a native magnifier on the right');
+    search.querySelector('button').click();
+    ok(search.classList.contains('expanded'), 'Bookmark magnifier expands the native-style search field');
+    const filter = search.querySelector('input'); filter.value = 'no match'; filter.dispatchEvent(domEvent('input'));
     ok(panel.textContent.includes('No bookmarks.'), 'Sidebar filter works');
     filter.value = ''; filter.dispatchEvent(domEvent('input'));
     doc.getElementById('viewOutline').click();
@@ -228,7 +264,7 @@ async function run() {
     ok(Zotero.Prefs.get(pref, true) === snapshot, 'Cancelling manual editing leaves stored crops intact');
     const originalSettings = await openAppearance(); clickText(originalSettings, 'Original view'); closeAppearance();
     await wait(() => !viewer.getPageView(0).div.style.clipPath, 'original view');
-    ok(JSON.parse(Zotero.Prefs.get(pref, true)).mode === 'manual', 'Original view keeps saved crop settings');
+    ok(JSON.parse(Zotero.Prefs.get(pref, true)).mode === 'off' && JSON.parse(Zotero.Prefs.get(pref, true)).crops.odd.length === 4, 'Original mode shows full pages without deleting stored frames');
     tab.click(); clickText(panel, 'Delete'); await wait(() => !bookmarks().length, 'sidebar delete');
     ok(internal._state.annotations.some(a => a.comment === 'Ordinary black note'), 'Sidebar delete preserves ordinary notes');
     toggle(0).click(); toggle(0).click(); toggle(0).click();
@@ -236,10 +272,12 @@ async function run() {
     ok(bookmarks().length === 1, 'Rapid bookmark clicks serialize');
     // Optional native screenshot of the synthetic fixture, never personal PDFs.
     const screenshotSettings = await openAppearance();
-    clickText(screenshotSettings, 'Original view'); closeAppearance();
+    select(screenshotSettings, 'mode', 'manual'); closeAppearance();
     await Zotero.Promise.delay(300);
     doc.getElementById('viewMoteroBookmarks').click();
     await openAppearance();
+    const screenshotPopup = doc.querySelector('.appearance-popup');
+    screenshotPopup.scrollTop = screenshotPopup.scrollHeight - screenshotPopup.clientHeight;
     try {
       const chromeWindow = Zotero.getMainWindow();
       const context = reader._iframe.browsingContext;

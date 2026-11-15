@@ -1,4 +1,5 @@
 import { compactReadingImage } from './vendor/motero/reading-image.mjs';
+import { inkBox } from './vendor/crop-to-margin/ink-box.mjs';
 
 // This bundle executes in the PDF window, not in the privileged plugin sandbox.
 // All PDF.js calls, DOM canvases, options, promises and callbacks stay there.
@@ -21,12 +22,14 @@ export function create() {
         const task = page.render({ canvasContext: context, viewport, background: '#ffffff' });
         tasks.set(index, task); await task.promise;
         if (closed) throw Error('Reader closed');
-        const image = compactReadingImage(context.getImageData(0, 0, canvas.width, canvas.height));
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        const ink = inkBox(pixels);
+        const image = compactReadingImage(pixels);
         phase = 'text';
         const text = await page.getTextContent();
         if (closed) throw Error('Reader closed');
         // Only structured-cloneable data crosses back; never page/DOM objects.
-        return { index, image, text, rotation: page.rotate,
+        return { index, image, ink, text, rotation: page.rotate,
           viewport: { width: natural.width, height: natural.height, scale: natural.scale, transform: [...natural.transform] } };
       }
       catch (error) { throw Error(`Auto crop, page ${index + 1}, ${phase}: ${error.message || error}`); }

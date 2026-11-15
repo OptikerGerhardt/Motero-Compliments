@@ -16,10 +16,12 @@ nicht automatisch verifiziert.
 ## Bedienung
 
 - **Aa → PDF-Zuschnitt** enthält die Zuschnitt-Einstellungen direkt im nativen
-  Erscheinungsbild-Menü. Es gibt keine zusätzliche Motero-Werkzeugleiste.
+  Erscheinungsbild-Menü: Segmenttasten wie bei Scrolling, mit nativer Schrift
+  und passenden Icons. Im Rechtsklick-Menü stehen keine Plugin-Einträge.
 - **Automatisch** erkennt Textkörper, Kopf-/Fußzeilen und Marginalien mit Moteros
   Leserlogik, einschließlich Scans und lokaler Layoutanalyse. Die Option
-  **Marginalien beibehalten** erhält die seitlichen Randnotizen.
+  **Randnotizen** und **Randreferenzen** lassen sich unabhängig ein-/ausschließen.
+  Letzteres betrifft etwa Editionsverweise und seitliche Zeilennummern.
 - **Breite / Höhe / Ganze Seite** passt den zugeschnittenen Ausschnitt an.
   **Rand (%)** gibt bei automatischem Zuschnitt zusätzlichen Abstand.
 - **Rahmen bearbeiten…** zeigt eine Vorschau mit verschiebbarem Rahmen,
@@ -27,13 +29,14 @@ nicht automatisch verifiziert.
   Umschalt vergrößert den Schritt. Der Rahmen gilt für **alle**, **ungerade** oder
   **gerade** PDF-Seiten, unabhängig von gedruckten Seitennummern. Ein neuer
   Alle-Seiten-Rahmen ersetzt die beiden Ausnahmen. Abbrechen verwirft die Bearbeitung.
-- **Originalansicht** zeigt vorübergehend die vollständigen Seiten;
-  gespeicherte Rahmen bleiben erhalten. **Zurücksetzen** löscht sie.
+- **Original** zeigt die vollständigen Seiten; **Automatisch** und **Manuell**
+  aktivieren den jeweiligen Zuschnitt. Gespeicherte manuelle Rahmen bleiben beim
+  Moduswechsel erhalten. **Zurücksetzen** löscht sie.
 - **Oben rechts im sichtbaren PDF-Ausschnitt hovern** zeigt den Lesezeichen-Schalter.
-  Ein gespeichertes Lesezeichen bleibt als kleine Motero-Flagge mit 65% Deckkraft sichtbar;
+  Ein gespeichertes Lesezeichen bleibt als 42×54-Pixel-Motero-Flagge mit 65% Deckkraft sichtbar;
   die Klickschaltfläche erscheint erst beim Überfahren oder Tastaturfokus.
 - Der **Fähnchen-Tab rechts neben Outline** öffnet die Lesezeichen in Zoteros
-  Sidebar: filtern, direkt zur Seite springen und löschen. Gewöhnliche schwarze
+  Sidebar: über die Lupe rechts filtern, direkt zur Seite springen und löschen. Gewöhnliche schwarze
   Notizen zählen nicht dazu. Zurück zu Outline/Annotationen/Vorschaubildern über
   deren unveränderte native Schaltflächen wechseln.
 
@@ -49,7 +52,7 @@ Reset Zoom und eigener Zoom bleiben wirksam, gespeicherte Rahmen bleiben erhalte
 
 ## Entwicklung
 
-![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.2.1.png)
+![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.3.0.png)
 
 Node.js 22+, npm und Python 3. Keine Laufzeit-Abhängigkeiten oder externen Dienste.
 
