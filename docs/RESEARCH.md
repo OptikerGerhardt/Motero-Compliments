@@ -7,7 +7,7 @@ Stand: 14.11.2026. Referenz: Motero main
 | Quelle | Ergebnis / Verwendung |
 | --- | --- |
 | [Motero](https://github.com/OptikerGerhardt/Motero), Reader-Branch | Originale Erkennungs-, Layout-, Bild-, Rahmen- und Lesezeichenlogik samt Regressionstests unter `src/vendor/motero/` und `test/vendor/`. Keine Android-UI oder PDF.js-Version übernommen. |
-| [Crop to Margin](https://github.com/waelitani/crop-to-margin) | Existierender Desktop-Ansatz: Seiten clippen und unsichtbare Ränder aus dem Layout nehmen; PDF-/Annotationskoordinaten erhalten. Cross-compartment-Zugriff und Split-Views berücksichtigt. Implementierung hier eigenständig. |
+| [Crop to Margin](https://github.com/waelitani/crop-to-margin) | Seit 0.3.0 dessen MIT-`inkBox`-Detektor übernommen; konservativer Fallback für getönte Textseiten. Moteros semantische Analyse bleibt primär. Ansichtszuschnitt und Anbindung hier eigenständig; PDF-/Annotationskoordinaten erhalten. |
 | [Zotero PDF Auto Crop](https://github.com/gjjisadog/zotero-pdf-auto-crop) | Alternative mit CropBox-Änderung der Datei, Sicherheitsabstand, Rotation und Schutz vor Dateikonflikten. Für Moteros lokale Ansicht nicht verwendet. Verweist auf die unabhängige Arbeit [pdfCropMargins](https://github.com/abarker/pdfCropMargins). |
 | [Desktop-Cropping im Forum](https://forums.zotero.org/discussion/105583/feature-suggestion-pdf-cropping-on-mac-desktops) | Wunsch nach Skim-artigem, nicht destruktivem Zuschnitt; bestätigt die Trennung von Datei und Ansicht. |
 | [Lesezeichen-Diskussion](https://forums.zotero.org/discussion/comment/509959#Comment_509959) | Unterscheidet Lesepositionen von PDF-Outlines. Annotationen ermöglichen native Speicherung; Hinweise auf Farb-/Tag-Lösungen und problematische Einzeltasten-Shortcuts beim Kommentieren. Deshalb semantischer Motero-Marker, explizite Schaltflächen und eigene Filterliste. |
@@ -67,3 +67,28 @@ foreground promotion and an LRU of 64 compact pixel snapshots. Look-ahead work
 is replaced as navigation changes and is discarded after settings generations
 change. Native UI font values come from an existing Appearance label; native
 select wrappers and switch classes supply the controls' styling.
+
+## Segmented controls and reference policy (0.3.0)
+
+The native Reader's Appearance `split-toggle`, 20-unit SVG artwork and sidebar
+`search-box` define the control geometry, typography and expanding magnifier.
+Crop/fit and include/exclude choices use these same classes. Original, Automatic
+and Manual share one persisted mode: the former transient `peek` state could
+disagree with the displayed controls and has been removed. PDF flags are now
+42×54 px at 65% opacity; the sidebar flag retains the native 20×20 grid.
+
+`crop-policy.mjs` separates side edition/line references from general marginal
+notes without altering the pinned Motero source. It masks only excluded reference
+rectangles when other notes are included, or unions reference rectangles when
+they are requested. Stable profiles cannot widen a crop back over an excluded
+reference column; exceptionally broad front-matter profiles yield to measured
+body bounds. Blank pages retain the normal profile fallback.
+
+[Crop to Margin's inkBox source](https://github.com/waelitani/crop-to-margin/blob/993326d8be23b2741809c1217c21490786bd4b3c/addon/content/crop-to-margin.js)
+is adapted under MIT with its license included. The modal-paper detector supplies
+a fallback only when Motero finds almost the full page, sufficiently dominant
+light paper and several text lines support it, and excluded references would not
+be restored. Trimming is bounded and all text rectangles are retained. This is
+functional reuse of the detector, not a claim that the entire plugin was ported.
+The native fixture contains a synthetic edition reference to verify visible
+include/exclude changes independently of the private document's actual layout.

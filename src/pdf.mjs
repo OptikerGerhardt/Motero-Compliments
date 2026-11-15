@@ -1,6 +1,7 @@
-import { getReadingSamples, getReadingTextLines, buildReadingModel, getReadingBounds,
-  localReadingPages, buildReadingProfiles, resolveReadingBounds, rotateReadingBounds
+import { getReadingSamples, getReadingTextLines, buildReadingModel,
+  localReadingPages, buildReadingProfiles, resolveReadingBounds, rotateReadingBounds, getReadingMarginalia
 } from './vendor/motero/reading-layout.mjs';
+import { policyBounds, constrainReadingFrame } from './crop-policy.mjs';
 import { WorkQueue, preparationPages } from './work-queue.mjs';
 import { cropForPage, paddedBounds, pageBookmarks, isReaderBookmark } from './core.mjs';
 import { waive, contentData, signal, drawingHook } from './bridge.mjs';
@@ -41,25 +42,26 @@ export class Analysis {
       phase = 'data transfer';
       const data = Components.utils.cloneInto(waive(result), globalThis);
       phase = 'text geometry';
-      return { index, image: data.image, rotation: data.rotation,
+      return { index, image: data.image, ink: data.ink, rotation: data.rotation,
         width: data.viewport.width, height: data.viewport.height,
         lines: getReadingTextLines(data.text, data.viewport) };
     }
     catch (error) { throw Error(`Auto crop, page ${index + 1}, ${phase}: ${error.message || error}`); }
   }
-  async initialize(includeMarginalia) {
+  async initialize(options) {
     const samples = [];
     // Bounded sequential rendering avoids competing with the reader's canvases.
     for (const index of getReadingSamples(this.pdf.numPages)) samples.push(await this.read(index));
     const model = buildReadingModel(samples);
     const profiles = buildReadingProfiles(samples.map(p => ({ index: p.index,
-      bounds: getReadingBounds(p.image, p.lines, model, p.index, { includeMarginalia }) })));
+      bounds: policyBounds(p.image, p.lines, model, p.index, options, p.ink) })));
     return { samples, model, profiles };
   }
-  async bounds(index, includeMarginalia, background = false) {
-    if (!this.initial || this.includeMarginalia !== includeMarginalia) {
-      this.includeMarginalia = includeMarginalia;
-      this.initial = this.initialize(includeMarginalia);
+  async bounds(index, options, background = false) {
+    const key = `${options.includeMarginalia}:${options.includeReferences}`;
+    if (!this.initial || this.policyKey !== key) {
+      this.policyKey = key;
+      this.initial = this.initialize(options);
     }
     const { samples, model, profiles } = await this.initial;
     const nearby = [];
@@ -70,8 +72,10 @@ export class Analysis {
     const localModel = local.length >= 3 ? buildReadingModel(local) : model;
     for (const key of model.repeated) localModel.repeated.add(key);
     const page = nearby.find(p => p.index === index) || samples.find(p => p.index === index);
-    const bounds = getReadingBounds(page.image, page.lines, localModel, index, { includeMarginalia });
-    return resolveReadingBounds(bounds, index, profiles);
+    const bounds = policyBounds(page.image, page.lines, localModel, index, options, page.ink);
+    const resolved = resolveReadingBounds(bounds, index, profiles);
+    // A broad cover/front-matter profile must not erase a useful body crop.
+    return constrainReadingFrame(bounds, resolved, getReadingMarginalia(page.lines, localModel, index), options.includeReferences);
   }
   destroy() {
     this.closed = true;
@@ -136,17 +140,17 @@ export class PDFView {
   invalidate() { this.failed = false; this.autoFit = true; this.warmQueue = []; this.preparationErrors.clear(); this.bounds.clear(); this.generation++; this.schedule(true); }
   async naturalBounds(index, background = false) {
     const options = this.state.options;
-    if (options.mode === 'off' || this.state.peek) return FULL;
+    if (options.mode === 'off') return FULL;
     const page = waive(await this.app.pdfDocument.getPage(index + 1));
     if (options.mode === 'manual') {
       // Manual crops are stored before user view rotation, like Motero.
       return rotateReadingBounds(cropForPage(options.crops, index) || FULL, page.rotate);
     }
     if (!background && this.preparationErrors.has(index)) throw this.preparationErrors.get(index);
-    return paddedBounds(await this.analysis.bounds(index, options.includeMarginalia, background), options.margin);
+    return paddedBounds(await this.analysis.bounds(index, options, background), options.margin);
   }
   prepareAhead(current) {
-    if (this.closed || this.state.options.mode !== 'automatic' || this.state.peek) return;
+    if (this.closed || this.state.options.mode !== 'automatic') return;
     if (this.warmCenter === current && this.warmGeneration === this.generation) return;
     const direction = this.warmCenter !== undefined && current < this.warmCenter ? -1 : 1;
     this.warmCenter = current; this.warmGeneration = this.generation;
@@ -201,11 +205,12 @@ export class PDFView {
       if (this.closed) return;
       const anchor = this.viewer.getPageView(current)?.div;
       const before = anchor?.getBoundingClientRect().top;
+      // Pixel insets must use the fitted viewport, not its previous scale.
+      if (fit && this.state.options.mode !== 'off') this.fit(current);
       this.applyPages();
       if (anchor && Number.isFinite(before)) {
         this.viewer.container.scrollTop += anchor.getBoundingClientRect().top - before;
       }
-      if (fit && this.state.options.mode !== 'off' && !this.state.peek) this.fit(current);
       this.state.updateButtons();
       this.prepareAhead(current);
     }
@@ -215,8 +220,9 @@ export class PDFView {
     }
   }
   applyPages() {
-    const enabled = this.state.options.mode !== 'off' && !this.state.peek;
+    const enabled = this.state.options.mode !== 'off';
     this.viewer.viewer.toggleAttribute('data-motero-cropping', enabled);
+    this.viewer.viewer.setAttribute('data-motero-generation', String(this.generation));
     this.hideNativeBookmarkNotes();
     for (let i = 0; i < this.viewer.pagesCount; i++) {
       const page = waive(this.viewer.getPageView(i));
@@ -252,8 +258,8 @@ export class PDFView {
       }
       corner.style.top = `${trims[0] + 4}px`;
       corner.style.right = `${trims[1] + 4}px`;
-      corner.style.width = `${Math.max(1, Math.min(32, (b[2] - b[0]) * w - 8))}px`;
-      corner.style.height = `${Math.max(1, Math.min(32, (b[3] - b[1]) * h - 8))}px`;
+      corner.style.width = `${Math.max(1, Math.min(50, (b[2] - b[0]) * w - 8))}px`;
+      corner.style.height = `${Math.max(1, Math.min(62, (b[3] - b[1]) * h - 8))}px`;
       const bookmarks = pageBookmarks(this.state.annotations(), i);
       const marker = corner.querySelector('.motero-bookmark-marker');
       marker.style.display = bookmarks.length ? '' : 'none';
@@ -330,6 +336,7 @@ export class PDFView {
     this.viewer.viewer.removeAttribute('data-motero-prepared-pages');
     this.viewer.viewer.removeAttribute('data-motero-analysis-cache');
     this.viewer.viewer.removeAttribute('data-motero-cropping');
+    this.viewer.viewer.removeAttribute('data-motero-generation');
     this.saved.clear(); this.restoreScale(); this.style.remove();
   }
 }

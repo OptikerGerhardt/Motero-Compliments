@@ -1,18 +1,32 @@
-# Verifikation 0.2.1
+# Verifikation 0.3.0
 
-14.11.2026, Linux x86_64, offizielles Zotero 10.0.8.
+15.11.2026, Linux x86_64, offizielles Zotero 10.0.8.
 
-- **111 Logiktests bestanden**, keine fehlgeschlagenen oder übersprungenen Tests.
+- **118 Logiktests bestanden**, keine fehlgeschlagenen oder übersprungenen Tests.
   Enthält Motero-Regressionen, Schreibschutz, native Koordinaten, Prioritätsqueue,
   begrenzte Vorverarbeitung und Diagnostik bei Raster-/Textanalysefehlern.
-- **56 native Funktionstests bestanden** mit 64 synthetischen PDF-Seiten,
-  eingebetteten Farbbildern und Softmasken. [Bericht](zotero-0.2.1-linux.json).
-- **9 Prüfungen mit der privat bereitgestellten PDF bestanden.** Die unveränderte
-  veröffentlichte 0.2.0 scheiterte beim automatischen Zuschnitt mit exakt
-  `Permission denied to pass object to privileged code`. 0.2.1 besteht den
-  Vergleich bei automatischem Zuschnitt, Breite/Höhe/Ganzseite, Marginalien/Rand,
-  schnellem Seitenwechsel und Reset Zoom. Die PDF-Bytes bleiben identisch.
-  [Inhaltsfreier Vorher-/Nachher-Nachweis](private-document-regression-0.2.1.json).
+- **64 native Funktionstests bestanden** mit 64 synthetischen PDF-Seiten,
+  eingebetteten Farbbildern, Softmasken und einer Editionsreferenz am Rand.
+  [Bericht](zotero-0.3.0-linux.json).
+- **13 Prüfungen mit der privat bereitgestellten PDF bestanden.** Automatisch
+  entfernt auf der geprüften Seite sichtbar etwa 37,5% der Papierfläche, auch bei
+  Breite/Höhe/Ganzseite und nach Original→Automatisch. Referenzoptionen lassen
+  sich verlustfrei umschalten; schneller Seitenwechsel und Reset Zoom funktionieren.
+  Die PDF-Bytes bleiben identisch. [Inhaltsfreier Nachweis](private-document-regression-0.3.0.json).
+
+Die gezielt erzeugte Editionsreferenz verbreitert beim Einschließen den sichtbaren
+nativen Ausschnitt und verschwindet beim Ausschließen wieder. Die geprüfte private
+Seite enthält keine entsprechend erkannten Seitenreferenzen; dort erwartet der
+Test einen unveränderten Rahmen nach dem Umschalten. Vier Kombinationen von
+Randnotizen/Randverweisen sowie leere und getönte Seiten sind zusätzlich durch
+Logiktests abgedeckt. Bei getönten Textseiten wird der tatsächlich übernommene
+MIT-Detektor als Fallback geprüft.
+
+Ein numerischer Vergleich auf der privaten Prüfseite ergibt 63,4% Restfläche für
+Crop to Margins rohen `inkBox`-Detektor und 62,5% für Moteros integrierte Richtlinie
+mit Rand. Das vergleicht weder komplette Plugins noch allgemeine Erkennungsqualität.
+Der Fehler des veralteten Maßstabs wurde korrigiert: Pixelbeschnitt wird erst nach
+dem automatischen Fit auf den aktuellen Viewport angewendet.
 
 Die automatische Raster-/Textanalyse läuft im PDF-Fenster und gibt nur geklonte
 Daten an das Plugin zurück. Das native Langdokument-Szenario prüft Vorverarbeitung
@@ -23,12 +37,12 @@ unverändert erhalten. Sichtbarkeit und Seitensprünge berücksichtigen die sich
 Zuschnitte, ohne PDF- oder Annotationskoordinaten umzuschreiben.
 
 Weitere native Prüfungen: exakt gleiche Schrift wie Zoteros Labels, ausgerichtete
-Appearance-Zeilen, kleiner Fähnchen-Tab rechts neben Outline, 65% Deckkraft,
-14×18-Pixel-PDF-Flagge, Hover-/Fokus-Sichtbarkeit, native Notizen, Filter/Sprung/
+Appearance-Segmenttasten, 20px-Fähnchen-Tab rechts neben Outline, 65% Deckkraft,
+42×54-Pixel-PDF-Flagge, Hover-/Fokus-Sichtbarkeit, native Notizen, Toolbar-Lupe/Sprung/
 Löschen, wiederholte Outline-Wechsel, manuelle Rahmen, Rotation, Abbrechen,
 Originalansicht und Wiederherstellung beim Deaktivieren/Reaktivieren.
 
-![Native Oberfläche; ausschließlich synthetisches Test-PDF](screenshots/native-reader-0.2.1.png)
+![Native Oberfläche; ausschließlich synthetisches Test-PDF](screenshots/native-reader-0.3.0.png)
 
 Der Screenshot wurde aus dem echten Zotero-Reader erzeugt und visuell geprüft.
 Von der privat bereitgestellten PDF wurden keine Screenshots angefertigt und
@@ -50,6 +64,8 @@ TLS-Prüfung bleibt aktiv. Persönliche Zotero-Profile bleiben unberührt.
 
 Die Berichte zu [0.2.0](zotero-10.0.8.json) und zum öffentlichen
 [0.1.0→0.2.0-Update](zotero-upgrade-0.1.0-to-0.2.0.json) bleiben für die Historie erhalten.
+Auch [0.2.1](zotero-0.2.1-linux.json) und dessen
+[private Fehlerregression](private-document-regression-0.2.1.json) bleiben erhalten.
 
 ## Öffentlicher Update-Test 0.2.0→0.2.1
 

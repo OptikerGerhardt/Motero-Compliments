@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "private_document": true,
+  "version": "0.3.0",
+  "zotero": "10.0.8",
+  "pages": 380,
+  "checks": [
+    "Privately supplied PDF opens at the reported reading area",
+    "Automatic visibly removes paper margins on the supplied PDF",
+    "Including side references preserves automatic paper-margin removal",
+    "Reference policy round-trip restores the original reading frame",
+    "Fit mode retains a visible automatic crop: width",
+    "Fit mode retains a visible automatic crop: height",
+    "Fit mode retains a visible automatic crop: page",
+    "Original is a single full-page mode",
+    "Switching Original to Automatic reliably reapplies the crop",
+    "Margin and marginal-note settings apply independently without a permission error",
+    "Fast navigation settles on the requested page",
+    "Native Reset Zoom remains in effect with this PDF",
+    "Supplied PDF bytes remain unchanged"
+  ],
+  "comparison": {
+    "crop_to_margin_raw_ink_area": 0.6343641493055555,
+    "motero_policy_area": 0.6253843578486984,
+    "motero_policy_width": 0.770000033903748,
+    "references_included_width": 0.770000033903748,
+    "references_excluded_again_width": 0.770000033903748
+  }
+}

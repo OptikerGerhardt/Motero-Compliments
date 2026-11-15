@@ -4,13 +4,18 @@ import { settings, preferenceKey, pageBookmarks, bookmarkAnnotation, paddedBound
 import { rotateReadingBounds } from '../src/vendor/motero/reading-layout.mjs';
 
 test('untrusted preferences cannot enable invalid modes, margins or rectangles', () => {
-  assert.deepEqual(settings(null), { mode: 'off', fit: 'width', margin: .01, includeMarginalia: false, crops: {} });
+  assert.deepEqual(settings(null), { mode: 'off', fit: 'width', margin: .01, includeMarginalia: false, includeReferences: false, crops: {} });
   const value = settings({ mode: 'bad', fit: 'bad', margin: Infinity,
     includeMarginalia: 'true', crops: { all: [0, 0, 3, 1] } });
   assert.equal(value.mode, 'off'); assert.equal(value.margin, .01);
   assert.equal(value.includeMarginalia, false); assert.deepEqual(value.crops, {});
   assert.equal(settings({ margin: -.1 }).margin, 0);
   assert.equal(settings({ margin: 1 }).margin, .15);
+});
+test('reference policy migrates old marginal-note settings and allows independent explicit choices', () => {
+  assert.equal(settings({ includeMarginalia: true }).includeReferences, true);
+  assert.equal(settings({ includeMarginalia: true, includeReferences: false }).includeReferences, false);
+  assert.equal(settings({ includeMarginalia: false, includeReferences: true }).includeReferences, true);
 });
 test('crop persistence is isolated by library and attachment', () => {
   const a = preferenceKey({ libraryID: 1, key: 'ABCDEFGH' });

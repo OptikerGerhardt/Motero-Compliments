@@ -1,6 +1,7 @@
 import { cropForPage, updateCrop, dragCrop, validCrop } from './vendor/motero/manual-crop.mjs';
 import { rotateReadingBounds } from './vendor/motero/reading-layout.mjs';
 import { waive, contentData } from './bridge.mjs';
+import { icon } from './icons.mjs';
 
 export function element(doc, tag, text, attrs = {}) {
   const node = doc.createElement(tag);
@@ -9,6 +10,7 @@ export function element(doc, tag, text, attrs = {}) {
   return node;
 }
 export function flagIcon(doc, outline = false) {
+  if (outline) return icon(doc, 'bookmark');
   const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('width', '20'); svg.setAttribute('height', '20'); svg.setAttribute('aria-hidden', 'true');
   const path = doc.createElementNS(svg.namespaceURI, 'path');

@@ -14,3 +14,5 @@ Korrektheit, Codequalität und ausreichende Tests haben Vorrang vor Tokenersparn
 - Halte GitHub nachvollziehbar: fokussierte Commits, Issues/PRs, Changelog und versionierte Releases; nie bestehende Release-Assets überschreiben. Neue Releases mit `npm run release:prepare` vorbereiten und `update.json` samt SHA-256 veröffentlichen.
 
 Desktop-Plugin: `src/`; originale Motero-Logik: `src/vendor/motero/` (AGPLv3, `COPYING`). Automatische Analyse in `content-analysis.mjs` im PDF-Kontext; nur geklonte Daten zurückgeben. Nativen Benutzerzoom respektieren. Desktop-Prefetch 12/6, Queue 2, Pixelcache 64. Zuschnitt nur als lokale Ansicht; Lesezeichen als native Notizannotationen. Recherche/Architektur: `docs/RESEARCH.md`. Prüfen: `npm test`, `npm run build`; Desktop-Test: `scripts/test-zotero.py` (isoliertes Profil).
+
+Zuschnittmodus ist allein `options.mode`; Randreferenzen/Randnotizen unabhängig in `crop-policy.mjs`. Native UI: `split-toggle`, 20px-Sidebar, `search-box`; PDF-Fahne 42×54px. MIT-Fallback: `src/vendor/crop-to-margin/`, Lizenz erhalten. Private PDFs/Inhalte nie veröffentlichen.

@@ -1,6 +1,7 @@
 import { element, flagIcon, showEditor } from './ui.mjs';
 import { isReaderBookmark } from './core.mjs';
 import { READER_CSS } from './styles.mjs';
+import { icon } from './icons.mjs';
 
 export class ReaderUI {
   constructor(state) {
@@ -18,11 +19,12 @@ export class ReaderUI {
     if (this.state.closed) return;
     const outline = this.doc.getElementById('viewOutline');
     if (outline && !this.doc.getElementById('viewMoteroBookmarks')) this.attachSidebar(outline);
+    if (this.search && !this.search.isConnected) this.doc.querySelector('.sidebar-toolbar .end')?.append(this.search);
     const popup = this.doc.querySelector('.appearance-popup');
     if (popup && !popup.querySelector('[data-motero-crop-settings]')) {
       const reference = popup.querySelector('.group .option > label') || popup;
       this.font = this.doc.defaultView.getComputedStyle(reference).font;
-      popup.append(this.cropControls());
+      popup.append(this.cropControls()); this.syncControls();
     }
   }
   setActive(active) {
@@ -39,6 +41,7 @@ export class ReaderUI {
     for (const [id, view] of [['viewThumbnail', 'thumbnails'], ['viewAnnotations', 'annotations'], ['viewOutline', 'outline']]) {
       this.doc.getElementById(id)?.setAttribute('aria-selected', String(!this.active && current === view));
     }
+    if (this.search) this.search.hidden = !this.active;
   }
   openBookmarks() {
     this.state.internal.toggleSidebar(true);
@@ -59,14 +62,25 @@ export class ReaderUI {
     outline.after(tab);
     const panel = element(doc, 'div', undefined, { id: 'moteroBookmarksView', role: 'tabpanel',
       'aria-labelledby': tab.id, 'data-motero-owned': '' });
-    const search = element(doc, 'div', undefined, { class: 'motero-search' });
-    this.filter = element(doc, 'input', undefined, { type: 'search',
+    const search = element(doc, 'div', undefined, { class: 'search-box motero-search', 'data-motero-owned': '' });
+    const magnifier = element(doc, 'button', undefined, { class: 'btn magnifier', type: 'button', title: t('Lesezeichen filtern', 'Filter bookmarks'), 'aria-label': t('Lesezeichen filtern', 'Filter bookmarks'), 'aria-expanded': 'false', 'data-tabstop': '1' });
+    magnifier.append(icon(doc, 'search'));
+    this.filter = element(doc, 'input', undefined, { type: 'text',
       'aria-label': t('Lesezeichen filtern', 'Filter bookmarks'),
       placeholder: t('Lesezeichen filtern', 'Filter bookmarks'), 'data-tabstop': '1' });
     this.filter.addEventListener('input', () => this.renderBookmarks());
-    search.append(this.filter);
+    const expand = expanded => { search.classList.toggle('expanded', expanded); magnifier.setAttribute('aria-expanded', String(expanded)); };
+    magnifier.addEventListener('click', () => { expand(true); this.filter.focus(); });
+    this.filter.addEventListener('focus', () => expand(true));
+    this.filter.addEventListener('blur', () => { if (!this.filter.value) expand(false); });
+    this.filter.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation(); this.filter.value = ''; this.renderBookmarks(); expand(false); magnifier.focus();
+    });
+    search.append(magnifier, this.filter); this.search = search;
+    doc.querySelector('.sidebar-toolbar .end').append(search);
     this.list = element(doc, 'div', undefined, { class: 'motero-bookmarks', 'aria-live': 'polite' });
-    panel.append(search, this.list);
+    panel.append(this.list);
     doc.getElementById('sidebarContent').append(panel);
     this.renderBookmarks(); this.updateTabState();
   }
@@ -100,25 +114,21 @@ export class ReaderUI {
     const section = element(doc, 'section', undefined, { class: 'group motero-crop-settings', 'data-motero-crop-settings': '' });
     if (this.font) section.style.font = this.font;
     section.setAttribute('aria-label', t('PDF-Zuschnitt', 'PDF cropping'));
-    const field = (name, title, values, selected) => {
+    const field = (name, title, values) => {
       const row = element(doc, 'div', undefined, { class: 'option' });
-      const label = element(doc, 'label', title, { for: 'motero-' + name });
-      const control = element(doc, 'select', undefined, { id: 'motero-' + name, name, 'data-tabstop': '1', 'aria-label': title });
-      for (const [value, text] of values) control.append(element(doc, 'option', text, { value }));
-      control.value = selected;
-      control.addEventListener('change', () => state.change({ ...state.options, [name]: control.value }));
-      const wrapper = element(doc, 'span', undefined, { class: 'select motero-select' });
-      const chevron = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      chevron.setAttribute('width', '8'); chevron.setAttribute('height', '8'); chevron.setAttribute('viewBox', '0 0 8 8'); chevron.setAttribute('class', 'chevron');
-      const path = doc.createElementNS(chevron.namespaceURI, 'path');
-      path.setAttribute('d', 'M0 2.70711L4 6.70711L8 2.70711L7.29289 2L4 5.29289L0.707107 2L0 2.70711Z'); path.setAttribute('fill', 'currentColor');
-      chevron.append(path); wrapper.append(control, chevron);
-      row.append(label, wrapper); section.append(row); return control;
+      const label = element(doc, 'label', title, { id: 'motero-label-' + name });
+      const group = element(doc, 'div', undefined, { class: 'split-toggle', role: 'group', 'data-motero-choice': name, 'data-tabstop': '1', 'aria-labelledby': label.id });
+      for (const [value, text, glyph] of values) {
+        const button = element(doc, 'button', undefined, { type: 'button', 'data-value': String(value), title: text, 'aria-label': title + ': ' + text, 'aria-pressed': 'false' });
+        button.append(icon(doc, glyph));
+        button.addEventListener('click', () => state.change({ ...state.options, [name]: value })); group.append(button);
+      }
+      row.append(label, group); section.append(row);
     };
-    field('mode', t('PDF-Zuschnitt', 'PDF cropping'), [['off', t('Original', 'Original')],
-      ['automatic', t('Automatisch', 'Automatic')], ['manual', t('Manuell', 'Manual')]], state.options.mode);
-    field('fit', t('Anpassen', 'Fit'), [['width', t('Breite', 'Width')],
-      ['height', t('Höhe', 'Height')], ['page', t('Ganze Seite', 'Whole page')]], state.options.fit);
+    field('mode', t('PDF-Zuschnitt', 'PDF cropping'), [['off', t('Original', 'Original'), 'off'],
+      ['automatic', t('Automatisch', 'Automatic'), 'automatic'], ['manual', t('Manuell', 'Manual'), 'manual']]);
+    field('fit', t('Anpassen', 'Fit'), [['width', t('Breite', 'Width'), 'width'],
+      ['height', t('Höhe', 'Height'), 'height'], ['page', t('Ganze Seite', 'Whole page'), 'page']]);
     const marginRow = element(doc, 'div', undefined, { class: 'option' });
     const marginLabel = element(doc, 'label', t('Rand', 'Margin'), { for: 'motero-margin' });
     const margin = element(doc, 'input', undefined, { type: 'range', min: '0', max: '15', step: '.5',
@@ -129,17 +139,9 @@ export class ReaderUI {
     margin.addEventListener('change', () => state.change({ ...state.options, margin: Number(margin.value) / 100 }));
     const slider = element(doc, 'div', undefined, { class: 'motero-margin-control' });
     slider.append(margin, value); marginRow.append(marginLabel, slider); section.append(marginRow);
-    const marginalRow = element(doc, 'div', undefined, { class: 'option' });
-    const marginalLabel = element(doc, 'label', t('Marginalien beibehalten', 'Keep marginal notes'), { for: 'motero-marginalia' });
-    const marginal = element(doc, 'input', undefined, { id: 'motero-marginalia', type: 'checkbox', class: 'switch', name: 'includeMarginalia', 'data-tabstop': '1' });
-    marginal.checked = state.options.includeMarginalia;
-    marginal.addEventListener('change', () => state.change({ ...state.options, includeMarginalia: marginal.checked }));
-    marginalRow.append(marginalLabel, marginal); section.append(marginalRow);
-    const peekRow = element(doc, 'div', undefined, { class: 'option' });
-    const peekLabel = element(doc, 'label', t('Originalansicht', 'Original view'), { for: 'motero-peek' });
-    const peek = element(doc, 'input', undefined, { id: 'motero-peek', name: 'peek', type: 'checkbox', class: 'switch', 'data-tabstop': '1' });
-    peek.checked = !!state.peek; peek.addEventListener('change', () => state.togglePeek());
-    peekRow.append(peekLabel, peek); section.append(peekRow);
+    const choices = [[false, t('Ausschließen', 'Exclude'), 'exclude'], [true, t('Einschließen', 'Include'), 'include']];
+    field('includeMarginalia', t('Randnotizen', 'Marginal notes'), choices);
+    field('includeReferences', t('Randverweise', 'References'), choices);
     const actions = element(doc, 'div', undefined, { class: 'motero-actions' });
     const action = (title, fn) => {
       const button = element(doc, 'button', title, { type: 'button', class: 'motero-action', 'data-tabstop': '1' });
@@ -151,15 +153,24 @@ export class ReaderUI {
     });
     action(t('Zurücksetzen', 'Reset'), () => {
       state.change({ ...state.options, mode: 'off', crops: {} });
-      section.querySelector('[name=mode]').value = 'off';
     });
     section.append(actions); return section;
+  }
+  syncControls() {
+    for (const group of this.doc.querySelectorAll('[data-motero-choice]')) {
+      const value = String(this.state.options[group.getAttribute('data-motero-choice')]);
+      for (const button of group.querySelectorAll('button')) {
+        const active = button.getAttribute('data-value') === value;
+        button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
+      }
+    }
   }
   destroy() {
     this.setActive(false);
     this.doc.removeEventListener('click', this.nativeClick, true);
     this.doc.getElementById('viewMoteroBookmarks')?.remove();
     this.doc.getElementById('moteroBookmarksView')?.remove();
+    this.search?.remove();
     for (const node of this.doc.querySelectorAll('[data-motero-crop-settings]')) node.remove();
     this.style.remove();
   }

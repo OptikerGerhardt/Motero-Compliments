@@ -2,7 +2,7 @@ import { normalizeCrops, validCrop, cropForPage } from './vendor/motero/manual-c
 import { isReaderBookmark } from './vendor/motero/reader-bookmark.mjs';
 export { isReaderBookmark, cropForPage };
 export const defaults = Object.freeze({ mode: 'off', fit: 'width', margin: 0.01,
-  includeMarginalia: false, crops: {} });
+  includeMarginalia: false, includeReferences: false, crops: {} });
 export function settings(value) {
   if (!value || typeof value !== 'object') value = {};
   return {
@@ -10,6 +10,7 @@ export function settings(value) {
     fit: ['width', 'height', 'page'].includes(value.fit) ? value.fit : 'width',
     margin: Number.isFinite(value.margin) ? Math.max(0, Math.min(.15, value.margin)) : .01,
     includeMarginalia: value.includeMarginalia === true,
+    includeReferences: typeof value.includeReferences === 'boolean' ? value.includeReferences : value.includeMarginalia === true,
     crops: normalizeCrops(value.crops)
   };
 }
