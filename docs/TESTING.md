@@ -60,6 +60,20 @@ Alle nativen Prüfungen verwenden neue temporäre Profile und eigene Datenbanken
 Vorhandene System-Proxy-CAs werden ausschließlich in diese Testprofile importiert;
 TLS-Prüfung bleibt aktiv. Persönliche Zotero-Profile bleiben unberührt.
 
+## Öffentlicher Update-Test 0.2.1→0.3.0
+
+Nach Veröffentlichung hat Zotero das unveränderte öffentliche 0.2.1-XPI über den
+eingebauten Updater auf 0.3.0 aktualisiert. Feed-Erkennung, Download, Hashprüfung
+und Aktivierung sowie anschließend alle **66 Prüfungen** bestanden.
+[Bericht](zotero-upgrade-0.2.1-to-0.3.0.json).
+
+Öffentlicher Feed, heruntergeladenes Release-Asset und lokal vorbereitetes Paket
+haben denselben SHA-256:
+`ab2d0575a37b721c5a013769b733d5aa2f0b350287cf4889e757cab559b1a803`.
+Das Release wurde aus dem getesteten Merge-Commit
+`a630ef2e1b3ce63d0a7c61d245b65f261b3af106` gebaut. Frühere Assets und Feed-Hashes
+bleiben unverändert; dieser nachträgliche Nachweis ersetzt das Release-Paket nicht.
+
 ## Frühere Versionen
 
 Die Berichte zu [0.2.0](zotero-10.0.8.json) und zum öffentlichen

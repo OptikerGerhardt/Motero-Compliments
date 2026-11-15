@@ -20,7 +20,7 @@ nicht automatisch verifiziert.
   und passenden Icons. Im Rechtsklick-Menü stehen keine Plugin-Einträge.
 - **Automatisch** erkennt Textkörper, Kopf-/Fußzeilen und Marginalien mit Moteros
   Leserlogik, einschließlich Scans und lokaler Layoutanalyse. Die Option
-  **Randnotizen** und **Randreferenzen** lassen sich unabhängig ein-/ausschließen.
+  **Randnotizen** und **Randverweise** lassen sich unabhängig ein-/ausschließen.
   Letzteres betrifft etwa Editionsverweise und seitliche Zeilennummern.
 - **Breite / Höhe / Ganze Seite** passt den zugeschnittenen Ausschnitt an.
   **Rand (%)** gibt bei automatischem Zuschnitt zusätzlichen Abstand.
