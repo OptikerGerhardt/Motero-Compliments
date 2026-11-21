@@ -224,7 +224,18 @@ export class PDFView {
     this.viewer.viewer.toggleAttribute('data-motero-cropping', enabled);
     this.viewer.viewer.setAttribute('data-motero-generation', String(this.generation));
     this.hideNativeBookmarkNotes();
-    for (let i = 0; i < this.viewer.pagesCount; i++) {
+    // A full pass is required when leaving a cropped view to restore every
+    // modified page. In stable Original mode only attached visible pages need
+    // bookmark overlays; scrolling must not traverse the whole document.
+    const restoreAll = this.wasCropping && !enabled;
+    this.wasCropping = enabled;
+    const indexes = enabled || restoreAll
+      ? Array.from({ length: this.viewer.pagesCount }, (_, i) => i)
+      : [...new Set([
+        this.viewer.currentPageNumber - 1,
+        ...(this.viewer._getVisiblePages?.().views || []).map(entry => entry.id - 1)
+      ])].filter(i => i >= 0 && i < this.viewer.pagesCount);
+    for (const i of indexes) {
       const page = waive(this.viewer.getPageView(i));
       if (!page?.div) continue;
       const div = page.div;
