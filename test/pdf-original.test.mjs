@@ -173,3 +173,32 @@ test('stable Original refresh avoids page-wide bookmark hook resynchronization',
   assert.equal(view.noteHooks.has(removed), false);
   assert.equal(view.noteHooks.has(pages[0]), true);
 });
+
+test('stable Original applyPages keeps both page and bookmark-hook scans bounded', () => {
+  const { view, calls, resetCalls } = harness(2000);
+  delete view.hideNativeBookmarkNotes;
+  const pages = Array.from({ length: 2000 }, () => ({
+    _pushNote() {}, render() {}
+  }));
+  let scans = 0;
+  const tracked = new Proxy(pages, {
+    get(target, key, receiver) {
+      if (key === Symbol.iterator) scans++;
+      return Reflect.get(target, key, receiver);
+    }
+  });
+  globalThis.Components.utils.exportFunction = callback => callback;
+  view.view = { _pages: tracked };
+  view.win = {};
+  view.noteHooks = new Map();
+  view.notePagesDirty = true;
+  view.notePages = null;
+  view.notePagesLength = -1;
+  view.applyPages();
+  assert.equal(scans, 1, 'initial hook registration scans once');
+  resetCalls();
+  view.applyPages();
+  assert.equal(scans, 1, 'stable Original refresh must not rescan all note pages');
+  assert.equal(calls(), 2, 'stable Original refresh must inspect only visible page views');
+  assert.equal(view.saved.size, 0);
+});
