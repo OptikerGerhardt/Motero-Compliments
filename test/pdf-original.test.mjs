@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFView } from '../src/pdf.mjs';
 
+// PDFView normally runs in Zotero's privileged compartment.
+globalThis.Components = { utils: { waiveXrays: value => value } };
+
 function style(initial = {}) {
   const values = new Map(Object.entries(initial));
   const writes = [];
