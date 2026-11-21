@@ -239,7 +239,9 @@ export class PDFView {
       const page = waive(this.viewer.getPageView(i));
       if (!page?.div) continue;
       const div = page.div;
-      if (!this.saved.has(div)) {
+      // Original mode must not write crop styles on pages that Motero never
+      // cropped. Restore only pages whose original styles we actually saved.
+      if (enabled && !this.saved.has(div)) {
         const original = {};
         for (const key of ['clip-path', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left']) {
           original[key] = [div.style.getPropertyValue(key), div.style.getPropertyPriority(key)];
@@ -249,14 +251,19 @@ export class PDFView {
       const b = enabled ? this.displayed(i, page) : FULL;
       const { width: w, height: h } = page.viewport;
       const trims = [b[1] * h, (1 - b[2]) * w, (1 - b[3]) * h, b[0] * w];
-      div.setAttribute('data-motero-crop', trims.join(' '));
-      const values = { 'clip-path': `inset(${trims.map(n => `${n}px`).join(' ')})` };
-      ['top', 'right', 'bottom', 'left'].forEach((side, n) => { values[`margin-${side}`] = `${-trims[n]}px`; });
-      for (const [key, value] of Object.entries(values)) {
-        const original = this.saved.get(div)[key];
-        if (enabled) div.style.setProperty(key, value, 'important');
-        else if (original[0]) div.style.setProperty(key, ...original);
-        else div.style.removeProperty(key);
+      if (enabled) {
+        div.setAttribute('data-motero-crop', trims.join(' '));
+        const values = { 'clip-path': `inset(${trims.map(n => `${n}px`).join(' ')})` };
+        ['top', 'right', 'bottom', 'left'].forEach((side, n) => { values[`margin-${side}`] = `${-trims[n]}px`; });
+        for (const [key, value] of Object.entries(values)) div.style.setProperty(key, value, 'important');
+      }
+      else if (this.saved.has(div)) {
+        for (const [key, [value, priority]] of Object.entries(this.saved.get(div))) {
+          if (value) div.style.setProperty(key, value, priority);
+          else div.style.removeProperty(key);
+        }
+        div.removeAttribute('data-motero-crop');
+        this.saved.delete(div);
       }
       // Add the shortcut only to pages PDF.js has actually attached.
       if (!div.isConnected || !page.pdfPage) continue;
