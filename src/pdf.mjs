@@ -111,19 +111,22 @@ export class PDFView {
     this.busHandlers = [];
     this.saved = new Map();
     this.noteHooks = new Map();
+    this.notePages = null;
+    this.notePagesLength = -1;
+    this.notePagesDirty = true;
     this.generation = 0;
     this.autoFit = true; this.warmQueue = []; this.warmWorkers = 0; this.preparationErrors = new Map();
     this.style = this.win.document.createElement('style');
     this.style.textContent = PDF_CSS;
     this.win.document.head.append(this.style);
     for (const name of ['pagerendered', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged']) {
-      this.on(name, () => this.schedule());
+      this.on(name, () => { this.notePagesDirty = true; this.schedule(); });
     }
     this.on('scalechanging', () => {
       if (!this.settingScale) this.autoFit = false;
       this.schedule();
     });
-    this.on('pagechanging', () => { this.schedule(true); state.updateButtons(); });
+    this.on('pagechanging', () => { this.notePagesDirty = true; this.schedule(true); state.updateButtons(); });
     this.scroll = () => this.schedule();
     this.viewer.container.addEventListener('scroll', this.scroll);
     this.resize = new this.win.ResizeObserver(signal(this.win, () => this.schedule(true)));
@@ -311,7 +314,12 @@ export class PDFView {
     }
   }
   hideNativeBookmarkNotes() {
-    const current = new Set(Array.from(this.view._pages || [], waive));
+    const pages = this.view._pages;
+    // A stable array with unchanged length needs no repeated O(N) hook scan.
+    // PDF.js page lifecycle events invalidate this shortcut, including replacements.
+    if (!this.notePagesDirty && Array.isArray(pages) &&
+        pages === this.notePages && pages.length === this.notePagesLength) return;
+    const current = new Set(Array.from(pages || [], waive));
     for (const [page, { original, hook, own }] of this.noteHooks) {
       if (current.has(page)) continue;
       if (waive(page._pushNote) === waive(hook)) {
@@ -331,6 +339,9 @@ export class PDFView {
       this.noteHooks.set(page, { original, hook, own });
       page.render();
     }
+    this.notePages = pages;
+    this.notePagesLength = Array.isArray(pages) ? pages.length : -1;
+    this.notePagesDirty = false;
   }
   fit(index) {
     const p = this.viewer.getPageView(index);
