@@ -235,6 +235,9 @@ export class PDFView {
         this.viewer.currentPageNumber - 1,
         ...(this.viewer._getVisiblePages?.().views || []).map(entry => entry.id - 1)
       ])].filter(i => i >= 0 && i < this.viewer.pagesCount);
+    // A page div can be replaced while cropped. The restore pass below
+    // visits current page views; also restore saved detached divs afterward.
+    // Keep the saved map until every original element is restored.
     for (const i of indexes) {
       const page = waive(this.viewer.getPageView(i));
       if (!page?.div) continue;
@@ -283,6 +286,16 @@ export class PDFView {
       marker.style.display = bookmarks.length ? '' : 'none';
       marker.style.color = bookmarks[0]?.color || '#000000';
       this.state.updateFlag(corner.querySelector('button'), i);
+    }
+    if (restoreAll) {
+      for (const [div, original] of this.saved) {
+        for (const [key, [value, priority]] of Object.entries(original)) {
+          if (value) div.style.setProperty(key, value, priority);
+          else div.style.removeProperty(key);
+        }
+        div.removeAttribute('data-motero-crop');
+        this.saved.delete(div);
+      }
     }
   }
   hideNativeBookmarkNotes() {
