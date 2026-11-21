@@ -137,6 +137,8 @@ test('Original mode ignores malformed visible-page IDs without a full traversal'
 
 test('stable Original refresh avoids page-wide bookmark hook resynchronization', () => {
   const { view } = harness(2000);
+  // This test exercises the real prototype hook, not the page-traversal harness stub.
+  delete view.hideNativeBookmarkNotes;
   const pages = Array.from({ length: 2000 }, () => ({
     _pushNote() {}, render() {}
   }));
