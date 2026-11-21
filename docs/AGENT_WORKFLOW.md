@@ -57,3 +57,14 @@ Do not repeat an unchanged investigation without new evidence. After repeated un
 - CI success only proves the checks *actually run*. A green Node build is not a native Zotero Desktop test, physical Android test or proof of bookmark sync.
 - Workflows that only monitor Motero should never alter code in either repository.
 - Any inability to access, run or verify something must be reported explicitly, not implied to be successful.
+
+## Integration branches and autonomous merges (new authoritative process)
+
+Read `docs/BRANCHING_AND_SECURITY.md` on `develop` for the current rules. This section supersedes any older assumption above that every reviewed PR must wait for a human merge. Use the following explicit distinction:
+
+- **Low-risk, focused PRs into `develop` or a feature integration branch**: Agent 3 documents a positive independent review on the exact HEAD SHA and sets `agent:review-passed`. Agent 4 verifies all required CI checks against that SHA and the target base, closed findings, branch ownership, mergeability, legitimate destination, and absence of data/security risks. Agent 4 then squash-merges using the expected HEAD SHA; records the resulting merge SHA and updates the sub-issue. No human approval needed for these narrowly scoped changes.
+- **Large features, security-sensitive changes, files under `.github/workflows/`, release/signing/authentication/storage/sync/schema migrations and PRs targeting `main`**: Agent 4 reports `agent:ready-for-human-review`, does not merge. A fully reviewed PR does not block independent agent work while it waits.
+- **Blocked PRs**: record exact cause, branch/base/SHA and needed dependency; then move to independent ready work. Never bypass red/missing CI or mark an incomplete PR as reviewed just to make the queue move.
+- **Integration and change of base**: keep child issues and parent links. When base or HEAD changes, review/CI evidence must be evaluated for the new target. Strict required status checks (when configured in GitHub Rulesets) remain authoritative. A merged `develop` PR does not grant permission to merge `develop` into `main` or publish a release.
+
+**Safety**: no direct writes to `main`. No forced updates. Exactly one writing agent per working branch. An independent review by Agent 3 is recorded in PR comments, not necessarily as a GitHub-approved-review action because the integration shares the owner's GitHub identity with the PR author. This does not provide independent GitHub credential-level authorization. Repository Rulesets must be applied separately in GitHub Settings to enforce branch policy.
