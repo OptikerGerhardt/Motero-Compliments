@@ -134,3 +134,40 @@ test('Original mode ignores malformed visible-page IDs without a full traversal'
   view.applyPages();
   assert.equal(calls(), 2);
 });
+
+test('stable Original refresh avoids page-wide bookmark hook resynchronization', () => {
+  const { view } = harness(2000);
+  const pages = Array.from({ length: 2000 }, () => ({
+    _pushNote() {}, render() {}
+  }));
+  let scans = 0;
+  const tracked = new Proxy(pages, {
+    get(target, key, receiver) {
+      if (key === Symbol.iterator) scans++;
+      return Reflect.get(target, key, receiver);
+    }
+  });
+  globalThis.Components.utils.exportFunction = callback => callback;
+  view.view = { _pages: tracked };
+  view.win = {};
+  view.noteHooks = new Map();
+  view.notePagesDirty = true;
+  view.notePages = null;
+  view.notePagesLength = -1;
+  view.hideNativeBookmarkNotes();
+  assert.equal(scans, 1);
+  assert.equal(view.noteHooks.size, 2000);
+  view.hideNativeBookmarkNotes();
+  assert.equal(scans, 1, 'stable page array must not be rescanned');
+  pages.push({ _pushNote() {}, render() {} });
+  view.hideNativeBookmarkNotes();
+  assert.equal(scans, 2, 'appended page must be hooked');
+  assert.equal(view.noteHooks.size, 2001);
+  const removed = pages[0];
+  pages[0] = { _pushNote() {}, render() {} };
+  view.notePagesDirty = true; // pagerendered/pagechanging event
+  view.hideNativeBookmarkNotes();
+  assert.equal(scans, 3, 'lifecycle event forces a rescan');
+  assert.equal(view.noteHooks.has(removed), false);
+  assert.equal(view.noteHooks.has(pages[0]), true);
+});
