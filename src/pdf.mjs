@@ -9,6 +9,18 @@ import { PDF_CSS } from './styles.mjs';
 import { flagIcon } from './ui.mjs';
 const FULL = [0, 0, 1, 1];
 
+// The PDF.js visibility method is private and may be absent or change shape.
+// On failure, the current page remains the bounded, conservative fallback.
+function visiblePageIndexes(viewer) {
+  try {
+    if (typeof viewer._getVisiblePages !== 'function') return [];
+    const views = viewer._getVisiblePages()?.views;
+    if (!Array.isArray(views)) return [];
+    return views.filter(entry => Number.isInteger(entry?.id)).map(entry => entry.id - 1);
+  }
+  catch { return []; }
+}
+
 export class Analysis {
   constructor(win, rootURI) {
     this.win = waive(win);
@@ -193,7 +205,7 @@ export class PDFView {
     const generation = this.generation;
     try {
       const current = this.viewer.currentPageNumber - 1;
-      const visible = this.viewer._getVisiblePages?.().views?.map(p => p.id - 1) || [current];
+      const visible = visiblePageIndexes(this.viewer);
       const indexes = [...new Set([current, ...visible])].filter(i => i >= 0 && i < this.viewer.pagesCount);
       for (const index of indexes) {
         if (!this.bounds.has(index)) {
@@ -233,7 +245,7 @@ export class PDFView {
       ? Array.from({ length: this.viewer.pagesCount }, (_, i) => i)
       : [...new Set([
         this.viewer.currentPageNumber - 1,
-        ...(this.viewer._getVisiblePages?.().views || []).map(entry => entry.id - 1)
+        ...visiblePageIndexes(this.viewer)
       ])].filter(i => i >= 0 && i < this.viewer.pagesCount);
     // A page div can be replaced while cropped. The restore pass below
     // visits current page views; also restore saved detached divs afterward.
