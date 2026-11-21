@@ -1,0 +1,85 @@
+name: Native Zotero integration
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-zotero-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  zotero-10-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify checked-out revision
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          actual_sha="$(git rev-parse HEAD)"
+          echo "Checked-out HEAD: $actual_sha"
+          echo "Expected PR HEAD or dispatch SHA: $EXPECTED_SHA"
+          echo "GitHub event SHA (may be PR merge commit): $EVENT_SHA"
+          if [[ "$actual_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Checkout SHA does not match intended test revision"
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build exact pull-request revision
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Install isolated display and Zotero runtime dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            xvfb xauth libdbus-glib-1-2 libgtk-3-0 libxt6 libnss3 libgbm1
+
+      - name: Obtain official fixed-version Zotero 10.0.8
+        env:
+          ZOTERO_VERSION: '10.0.8'
+        run: |
+          set -euo pipefail
+          url="https://download.zotero.org/client/release/${ZOTERO_VERSION}/Zotero-${ZOTERO_VERSION}_linux-x86_64.tar.xz"
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 240 \
+            "$url" --output "$RUNNER_TEMP/zotero.tar.xz"
+          mkdir -p "$RUNNER_TEMP/zotero"
+          tar -xJf "$RUNNER_TEMP/zotero.tar.xz" -C "$RUNNER_TEMP/zotero"
+          binary="$(find "$RUNNER_TEMP/zotero" -type f -name zotero -perm /111 -print -quit)"
+          if [[ -z "$binary" ]]; then
+            echo "::error::No executable Zotero binary in official archive"
+            exit 1
+          fi
+          echo "ZOTERO_BINARY=$binary" >> "$GITHUB_ENV"
+
+      - name: Test installed XPI in disposable Zotero profile with synthetic 64-page PDF
+        shell: bash
+        env:
+          TMPDIR: ${{ runner.temp }}
+          MOZ_HEADLESS: '1'
+        run: |
+          set -euo pipefail
+          timeout 420s xvfb-run -a python3 scripts/test-zotero.py "$ZOTERO_BINARY" --rich-pdf \
+            2>&1 | tee "$RUNNER_TEMP/zotero-native-result.txt"
+
+      - name: Upload sanitized synthetic integration test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zotero-native-logs
+          path: |
+            ${{ runner.temp }}/zotero-native-result.txt
+            ${{ runner.temp }}/motero-zotero-test-*/zotero.log
+            ${{ runner.temp }}/motero-zotero-test-*/result.json
+          retention-days: 7
+          if-no-files-found: ignore
