@@ -110,3 +110,27 @@ test('return to Original restores a detached, replaced cropped page', () => {
   assert.equal(oldDiv.getAttribute('data-motero-crop'), null);
   assert.equal(view.saved.size, 0);
 });
+
+test('Original mode uses a bounded current-page fallback for missing or changed visibility APIs', () => {
+  for (const visibility of [
+    undefined,
+    () => ({ views: null }),
+    () => ({ views: {} }),
+    () => { throw new Error('private API changed'); }
+  ]) {
+    const { view, calls } = harness(2000);
+    view.viewer._getVisiblePages = visibility;
+    view.applyPages();
+    assert.equal(calls(), 1, 'fallback should inspect only the current page');
+    assert.equal(view.saved.size, 0);
+  }
+});
+
+test('Original mode ignores malformed visible-page IDs without a full traversal', () => {
+  const { view, calls } = harness(2000);
+  view.viewer._getVisiblePages = () => ({ views: [
+    { id: 1 }, { id: 2 }, { id: -1 }, { id: 2001 }, { id: '3' }, null
+  ] });
+  view.applyPages();
+  assert.equal(calls(), 2);
+});
