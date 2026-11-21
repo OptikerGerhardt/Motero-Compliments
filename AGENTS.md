@@ -26,3 +26,8 @@ Zuschnittmodus ist allein `options.mode`; Randreferenzen/Randnotizen unabhängig
 - Erfasster Upstream-SHA ist **keine** abgeschlossene Kompatibilitätsprüfung. Prüfstände nur mit konkreter Commit-/Test-Evidenz als verifiziert markieren.
 - Große Issues bei Bedarf in kleine, unabhängig reviewfähige Teil-Issues zerlegen; nur bestätigte native GitHub-Sub-Issue-Verknüpfungen als solche bezeichnen. Ein PR je fokussiertem Scope, außer technisch notwendige Abhängigkeiten verlangen eine andere Aufteilung.
 - Die automatisierte Upstream-Beobachtung meldet nur neue Commits im Tracking-Issue #15. Sie übernimmt keinen Code und gibt keine Releases frei. Für kompatibilitätsrelevante PRs Motero-/Reader-SHAs, betroffene Verträge, Tests und begründete Plattformunterschiede dokumentieren.
+
+
+## Branching and merge gates (develop)
+
+See `docs/BRANCHING_AND_SECURITY.md` in the relevant branch. `main` remains the human-approved release branch; `develop` is the shared tested integration branch. New independent implementation PRs target `develop` or an explicit parent feature branch; only a human-authorized PR may target/merge into `main`. Reviewed low-risk PRs may be squash-merged into `develop` by Agent 4 following SHA-specific independent review, successful current CI checks, explicit scope verification and a final mergeability check. No agent auto-merges releases, changes credentials, security rules, workflow definitions or data migrations. Review/CI is required on the actual PR branch and compatible target base. These are agent/process policies, not proof that GitHub settings enforce restrictions. The GitHub admin account is shared with the connected integration; it cannot technically distinguish agent from human until account separation is introduced.
