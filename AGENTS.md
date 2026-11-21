@@ -16,3 +16,13 @@ Korrektheit, Codequalität und ausreichende Tests haben Vorrang vor Tokenersparn
 Desktop-Plugin: `src/`; originale Motero-Logik: `src/vendor/motero/` (AGPLv3, `COPYING`). Automatische Analyse in `content-analysis.mjs` im PDF-Kontext; nur geklonte Daten zurückgeben. Nativen Benutzerzoom respektieren. Desktop-Prefetch 12/6, Queue 2, Pixelcache 64. Zuschnitt nur als lokale Ansicht; Lesezeichen als native Notizannotationen. Recherche/Architektur: `docs/RESEARCH.md`. Prüfen: `npm test`, `npm run build`; Desktop-Test: `scripts/test-zotero.py` (isoliertes Profil).
 
 Zuschnittmodus ist allein `options.mode`; Randreferenzen/Randnotizen unabhängig in `crop-policy.mjs`. Native UI: `split-toggle`, 20px-Sidebar, `search-box`; PDF-Fahne 42×54px. MIT-Fallback: `src/vendor/crop-to-margin/`, Lizenz erhalten. Private PDFs/Inhalte nie veröffentlichen.
+
+## Verbindlicher Motero-Upstream-Abgleich und Agentenübergaben
+
+- Bei allen Aufgaben die Regeln in `docs/AGENT_WORKFLOW.md` beachten; GitHub-Issues, PRs, CI und Commit-SHAs sind der gemeinsame verlässliche Arbeitsstand. Nicht auf fremde Chat-Zwischenstände verlassen.
+- Bei Änderungen an PDF-Zuschnitt, Lesezeichen, Annotationsformat, Navigation oder gemeinsamen Einstellungen zusätzlich `docs/MOTERO_COMPATIBILITY.md` lesen und einhalten.
+- Relevante Änderungen aus `OptikerGerhardt/Motero` (`main` und tatsächlicher `reader`-Branch bzw. im Android-Build verankerter Submodule-SHA) anhand von Diffs und Tests prüfen; funktionale Kompatibilität zählt, nicht das Kopieren der Android-UI.
+- Neue upstream Crop-Erkennungsregeln einschließlich negativer Regressionstests evaluieren und wo angemessen auf Desktop übertragen. Bookmark-Daten, Farben, Positionen und Zotero-Sync-Semantik nicht inkompatibel verändern.
+- Erfasster Upstream-SHA ist **keine** abgeschlossene Kompatibilitätsprüfung. Prüfstände nur mit konkreter Commit-/Test-Evidenz als verifiziert markieren.
+- Große Issues bei Bedarf in kleine, unabhängig reviewfähige Teil-Issues zerlegen; nur bestätigte native GitHub-Sub-Issue-Verknüpfungen als solche bezeichnen. Ein PR je fokussiertem Scope, außer technisch notwendige Abhängigkeiten verlangen eine andere Aufteilung.
+- Die automatisierte Upstream-Beobachtung meldet nur neue Commits im Tracking-Issue #15. Sie übernimmt keinen Code und gibt keine Releases frei. Für kompatibilitätsrelevante PRs Motero-/Reader-SHAs, betroffene Verträge, Tests und begründete Plattformunterschiede dokumentieren.
