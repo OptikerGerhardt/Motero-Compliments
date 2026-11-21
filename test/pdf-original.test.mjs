@@ -88,3 +88,25 @@ test('crop to Original restores original inline values and priorities', () => {
   view.applyPages();
   assert.equal(calls(), 2, 'subsequent Original refresh must remain bounded');
 });
+
+
+test('return to Original restores a detached, replaced cropped page', () => {
+  const { view, pages } = harness(64);
+  const oldDiv = pages[0].div;
+  view.state.options.mode = 'manual';
+  view.applyPages();
+  assert.equal(view.saved.has(oldDiv), true);
+  const replacement = {
+    ...oldDiv,
+    style: style(),
+    getAttribute: () => null,
+    setAttribute() {},
+    removeAttribute() {}
+  };
+  pages[0].div = replacement;
+  view.state.options.mode = 'off';
+  view.applyPages();
+  assert.equal(oldDiv.style.getPropertyValue('clip-path'), '');
+  assert.equal(oldDiv.getAttribute('data-motero-crop'), null);
+  assert.equal(view.saved.size, 0);
+});
