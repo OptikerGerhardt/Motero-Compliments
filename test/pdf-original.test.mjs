@@ -216,6 +216,7 @@ test('destroy restores detached cropped styles and clears native hooks', () => {
   view.resize = { disconnect() {} };
   view.layout = { destroy() {} };
   view.viewer.container = { removeEventListener() {} };
+  view.viewer.viewer.removeAttribute = () => {};
   view.app = { eventBus: { off() {} } };
   view.busHandlers = [];
   view.noteHooks = new Map();
