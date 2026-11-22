@@ -29,6 +29,7 @@ function harness(count, visible = [1, 2]) {
     const div = {
       style: style(),
       isConnected: false,
+      querySelector: () => null,
       setAttribute: (key, value) => attrs.set(key, value),
       removeAttribute: key => attrs.delete(key),
       getAttribute: key => attrs.get(key) ?? null
