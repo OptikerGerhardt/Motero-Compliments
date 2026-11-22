@@ -202,3 +202,31 @@ test('stable Original applyPages keeps both page and bookmark-hook scans bounded
   assert.equal(calls(), 2, 'stable Original refresh must inspect only visible page views');
   assert.equal(view.saved.size, 0);
 });
+
+test('destroy restores detached cropped styles and clears native hooks', () => {
+  const { view, pages } = harness(64);
+  const div = pages[0].div;
+  div.style.setProperty('clip-path', 'inset(3px)', 'important');
+  view.state.options.mode = 'manual';
+  view.applyPages();
+  assert.equal(view.saved.has(div), true);
+  view.closed = false;
+  view.win = { clearTimeout() {}, removeEventListener() {} };
+  view.analysis = { destroy() {} };
+  view.resize = { disconnect() {} };
+  view.layout = { destroy() {} };
+  view.viewer.container = { removeEventListener() {} };
+  view.app = { eventBus: { off() {} } };
+  view.busHandlers = [];
+  view.noteHooks = new Map();
+  view.view = { _destroyed: true };
+  view.restoreScale = () => {};
+  view.style = { remove() {} };
+  div.querySelector = () => null;
+  view.destroy();
+  assert.equal(div.style.getPropertyValue('clip-path'), 'inset(3px)');
+  assert.equal(div.style.getPropertyPriority('clip-path'), 'important');
+  assert.equal(div.getAttribute('data-motero-crop'), null);
+  assert.equal(view.saved.size, 0);
+  assert.equal(view.closed, true);
+});
