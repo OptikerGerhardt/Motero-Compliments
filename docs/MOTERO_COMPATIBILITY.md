@@ -58,6 +58,6 @@ Do not delay *unrelated* fixes for a global audit. If upstream access fails, doc
 
 ## Ongoing coordination
 
-Tracking issue: [#15](https://github.com/OptikerGerhardt/Motero-Compliments/issues/15). Agent 1 owns triage of observed upstream changes and creates focused non-duplicate sub-issues. Agent 2 implements focused fixes/tests. Agent 3 reviews affected contracts independently. Agent 4 fixes verified review findings and checks closeout. All agents also follow [`docs/AGENT_WORKFLOW.md`](AGENT_WORKFLOW.md).
+Tracking issue: [#15](https://github.com/OptikerGerhardt/Motero-Compliments/issues/15). Any worker may triage, implement or repair scoped changes. Another worker independently reviews the affected contracts. Follow [the shared workflow](AGENT_WORKFLOW.md).
 
 The scheduled GitHub Action only **detects and reports HEAD changes**, without reviewing code, creating implementation PRs, updating this verified baseline or merging upstream code.
