@@ -110,7 +110,7 @@ async function main() {
     '**Android:**', ...(mainPaths.length ? mainPaths : ['- No new candidates / first observation']),
     '**Reader:**', ...(readerPaths.length ? readerPaths : ['- No new candidates / first observation']),
     '',
-    'Agent 1: inspect relevant upstream changes and tests, create small non-duplicate issues,',
+    'Any available worker can inspect relevant upstream changes and tests, file focused issues,',
     'and distinguish observed commits from independently verified compatibility.',
     'Do not update the verified baseline automatically.',
     '',
