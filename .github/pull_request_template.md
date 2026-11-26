@@ -27,6 +27,6 @@
 - [ ] Privacy, non-destructive crop, Zotero annotation coordinates and licensing preserved
 
 Compatibility contract: [docs/MOTERO_COMPATIBILITY.md](../docs/MOTERO_COMPATIBILITY.md).
-Agent handoffs: [docs/AGENT_WORKFLOW.md](../docs/AGENT_WORKFLOW.md).
+Autonomous development: [docs/AGENT_WORKFLOW.md](../docs/AGENT_WORKFLOW.md).
 
 Do not claim complete compatibility just because the Node build passes. A newly detected upstream SHA is not a completed code review or test.
