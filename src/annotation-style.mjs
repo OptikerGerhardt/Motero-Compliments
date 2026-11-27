@@ -1,3 +1,4 @@
+import { isReaderBookmark } from './core.mjs';
 import { contentData } from './bridge.mjs';
 
 const hexColor = /^#[\da-f]{6}$/i;
@@ -11,13 +12,19 @@ export function readAnnotationStyle(annotation) {
 
 export function stylePatch(annotation, style) {
   if (!annotation?.id || annotation.readOnly || !style || !hexColor.test(style.color)) return null;
-  const tags = new Map(annotationTags(annotation).map(tag => [tag.name.toLocaleLowerCase(), { name: tag.name }]));
-  for (const name of style.tags) {
-    if (typeof name === 'string' && name.trim() && !tags.has(name.toLocaleLowerCase())) {
-      tags.set(name.toLocaleLowerCase(), { name });
-    }
+  const tags = annotationTags(annotation).map(tag => ({ ...tag }));
+  const names = new Set(tags.map(tag => tag.name.trim().normalize()));
+  const patch = { id: annotation.id };
+  if (!isReaderBookmark(annotation)) patch.color = style.color;
+  for (const value of style.tags) {
+    if (typeof value !== 'string') continue;
+    const name = value.trim().normalize();
+    if (!name || names.has(name)) continue;
+    tags.push({ name });
+    names.add(name);
+    patch.tags = tags;
   }
-  return { id: annotation.id, color: style.color, tags: [...tags.values()] };
+  return patch.color || patch.tags ? patch : null;
 }
 
 function selected(state, ids) {

@@ -210,6 +210,11 @@ async function run() {
       'Pasting style preserves the original annotation type, text and PDF coordinates');
     ok(pasted.tags.some(tag => tag.name === 'Source style tag') && pasted.tags.some(tag => tag.name === 'Existing target tag'),
       'Pasting annotation style adds source tags and keeps existing tags');
+    const storedStyle = await wait(() => {
+      const item = Zotero.Items.getByLibraryAndKey(attachment.libraryID, styleTarget.id);
+      return item?.annotationColor === '#000000' && item.getTags().some(tag => tag.tag === 'Source style tag');
+    }, 'annotation style persistence');
+    ok(storedStyle, 'Copied style persists through Zotero’s annotation database');
     internal._annotationManager.deleteAnnotations(Components.utils.cloneInto([styleTarget.id], reader._iframeWindow));
     internal.toggleSidebar(true); tab.click();
     const panel = doc.getElementById('moteroBookmarksView');

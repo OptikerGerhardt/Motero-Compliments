@@ -9,10 +9,18 @@ test('annotation style contains type, color and tag names without annotation con
 });
 
 test('styling merges tags without changing a target’s identity, content or geometry', () => {
-  const target = { id: 'target', tags: [{ name: 'Old' }, { name: 'research' }], position: { pageIndex: 2 } };
+  const target = { id: 'target', tags: [{ name: 'Old', color: '#0f0f0f' }, { name: 'research' }], position: { pageIndex: 2 } };
   const style = { type: 'underline', color: '#ff0000', tags: ['Research', 'New'] };
   assert.deepEqual(stylePatch(target, style), {
-    id: 'target', color: '#ff0000', tags: [{ name: 'Old' }, { name: 'research' }, { name: 'New' }]
+    id: 'target', color: '#ff0000', tags: [{ name: 'Old', color: '#0f0f0f' }, { name: 'research' }, { name: 'Research' }, { name: 'New' }]
   });
   assert.equal(stylePatch({ ...target, readOnly: true }, style), null);
+  assert.deepEqual(stylePatch(target, { ...style, tags: ['research'] }), { id: 'target', color: '#ff0000' });
+
+});
+
+test('applying another annotation style keeps Motero’s black bookmark flag compatible', () => {
+  const bookmark = { id: 'bookmark', type: 'note', comment: 'Bookmark · Chapter 1', color: '#000000' };
+  assert.deepEqual(stylePatch(bookmark, { color: '#ff0000', tags: ['Section'] }),
+    { id: 'bookmark', tags: [{ name: 'Section' }] });
 });
