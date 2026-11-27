@@ -92,7 +92,10 @@ async function run() {
     counts = null;
     mutations.disconnect();
 
-    const targetPage = viewer.currentPageNumber - 1;
+    const targetPage = target;
+    reader.navigate({ pageIndex: targetPage });
+    await wait(() => viewer.currentPageNumber === targetPage + 1, 'return to fixed benchmark page');
+    await delay(300);
     rasterIndexes = [];
     const start = clock();
     state.change({ ...state.options, mode: 'automatic', fit: 'page' });
@@ -102,7 +105,16 @@ async function run() {
       return crop?.some(value => value > 0);
     }, 'visible automatic crop');
     const automatic = { page: targetPage + 1, firstCropMs: Math.round(clock() - start),
-      extractionsBeforeFirstCrop: rasterIndexes.length, firstExtractionWasVisible: rasterIndexes[0] === targetPage };
+      extractionsBeforeFirstCrop: rasterIndexes.length, firstExtractionWasVisible: rasterIndexes[0] === targetPage,
+      firstCropProfile: viewer.viewer.getAttribute('data-motero-profile') || 'eager' };
+    if (automatic.firstCropProfile === 'local') {
+      await wait(() => viewer.viewer.getAttribute('data-motero-profile') === 'ready', 'deferred profile');
+    }
+    const page = viewer.getPageView(targetPage);
+    const trims = page.div.getAttribute('data-motero-crop')?.split(' ').map(Number);
+    automatic.refinedTrims = trims && trims.map((value, index) => Math.round(1000 * value /
+      (index % 2 ? page.viewport.width : page.viewport.height)) / 1000);
+    automatic.profileApplied = viewer.viewer.getAttribute('data-motero-profile') === 'ready';
     rasterIndexes = null;
     state.change({ ...state.options, mode: 'off' });
     await wait(() => !viewer.getPageView(targetPage)?.div?.style.clipPath, 'restore Original');

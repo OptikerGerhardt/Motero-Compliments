@@ -1,28 +1,80 @@
+import { getReadingTextLines } from './vendor/motero/reading-layout.mjs';
 import { compactReadingImage } from './vendor/motero/reading-image.mjs';
 import { inkBox } from './vendor/crop-to-margin/ink-box.mjs';
 
 // This bundle executes in the PDF window, not in the privileged plugin sandbox.
 // All PDF.js calls, DOM canvases, options, promises and callbacks stay there.
+// Adapted from Motero's reading-analysis.mjs. Paths, images, unknown
+// operators and nonstandard text painting all require raster analysis.
+export function canUseTextBounds(ops, operators, lines) {
+  if (!ops || !operators?.fnArray?.length || !Array.isArray(operators.argsArray)
+      || lines.filter(line => !line.vertical && line.text.length > 20).length < 6) return false;
+  const allowed = new Set([
+    ops.dependency, ops.save, ops.restore, ops.transform,
+    ops.setLineWidth, ops.setLineCap, ops.setLineJoin, ops.setMiterLimit, ops.setDash,
+    ops.setRenderingIntent, ops.setFlatness,
+    ...['beginText', 'endText', 'setCharSpacing', 'setWordSpacing', 'setHScale', 'setLeading',
+      'setFont', 'setTextRenderingMode', 'setTextRise', 'moveText', 'setLeadingMoveText',
+      'setTextMatrix', 'nextLine', 'showText', 'showSpacedText', 'nextLineShowText',
+      'nextLineSetSpacingShowText', 'setFillColorSpace', 'setFillColor', 'setFillGray',
+      'setFillRGBColor', 'setFillCMYKColor', 'markPoint', 'markPointProps',
+      'beginMarkedContent', 'beginMarkedContentProps', 'endMarkedContent',
+      'beginCompat', 'endCompat'].map(name => ops[name])
+  ]);
+  allowed.delete(undefined);
+  return operators.fnArray.every((op, index) => allowed.has(op)
+    && (op !== ops.setTextRenderingMode || operators.argsArray[index]?.[0] === 0));
+}
+
 export function create() {
   const tasks = new Map();
   let closed = false;
+  const textCache = new Map();
+  async function readText(index, page, viewport) {
+    if (textCache.has(index)) return textCache.get(index);
+    const pending = page.getTextContent().then(text => ({
+      text, lines: getReadingTextLines(text, viewport)
+    }));
+    textCache.set(index, pending);
+    if (textCache.size > 64) textCache.delete(textCache.keys().next().value);
+    try { return await pending; }
+    catch (error) { if (textCache.get(index) === pending) textCache.delete(index); throw error; }
+  }
   return {
-    async extract({ index }) {
+    async extract({ index, optimized = false, textOnly = false }) {
       if (closed) throw Error('Reader closed');
       let canvas, phase = 'page';
       try {
         const page = await window.PDFViewerApplication.pdfDocument.getPage(index + 1);
         if (closed) throw Error('Reader closed');
-        phase = 'raster';
         const natural = page.getViewport({ scale: 1, rotation: page.rotate });
+        const geometry = { index, rotation: page.rotate, viewport: {
+          width: natural.width, height: natural.height, scale: natural.scale, transform: [...natural.transform]
+        } };
+        let textData;
+        if (optimized) {
+          phase = 'text';
+          textData = await readText(index, page, natural);
+          if (closed) throw Error('Reader closed');
+          if (textOnly) return { ...geometry, lines: textData.lines };
+          phase = 'operators';
+          const operators = await page.getOperatorList().catch(() => null);
+          if (closed) throw Error('Reader closed');
+          if (canUseTextBounds(window.pdfjsLib?.OPS, operators, textData.lines)) {
+            return { ...geometry, lines: textData.lines, textOnly: true };
+          }
+        }
+        phase = 'raster';
         const viewport = page.getViewport({ scale: Math.min(1, 640 / Math.max(natural.width, natural.height)), rotation: page.rotate });
         canvas = document.createElement('canvas');
         canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
         const context = canvas.getContext('2d', { willReadFrequently: true });
-        const task = page.render({ canvasContext: context, viewport, background: '#ffffff' });
+        const task = page.render({ canvasContext: context, viewport, background: '#ffffff', annotationMode: 0 });
         tasks.set(index, task); await task.promise;
         if (closed) throw Error('Reader closed');
         const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        if (optimized) return { ...geometry, lines: textData.lines,
+          pixels: { width: canvas.width, height: canvas.height, data: pixels.data } };
         const ink = inkBox(pixels);
         const image = compactReadingImage(pixels);
         phase = 'text';
@@ -35,7 +87,7 @@ export function create() {
       catch (error) { throw Error(`Auto crop, page ${index + 1}, ${phase}: ${error.message || error}`); }
       finally { tasks.delete(index); if (canvas) canvas.width = canvas.height = 0; }
     },
-    destroy() { closed = true; for (const task of tasks.values()) task.cancel(); tasks.clear(); }
+    destroy() { closed = true; for (const task of tasks.values()) task.cancel(); tasks.clear(); textCache.clear(); }
   };
 }
 

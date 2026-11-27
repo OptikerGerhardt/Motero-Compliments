@@ -63,13 +63,15 @@ async function run() {
       }, 'stable crop geometry');
     };
     await apply('fit', 'page'); await apply('mode', 'automatic');
+    const initial = geometry();
+    await wait(() => viewer.viewer.getAttribute('data-motero-profile') === 'ready', 'deferred document profile');
     const excluded = geometry();
     ok(excluded.area < .9 && excluded.width < .97, 'Automatic visibly removes paper margins on the supplied PDF');
     const probe = Components.utils.waiveXrays(win.MoteroPageAnalysis.create());
     const measured = Components.utils.waiveXrays(await probe.extract(Components.utils.cloneInto({ index: target }, win)));
     const ink = measured.ink;
     comparison = { crop_to_margin_raw_ink_area: ink ? (ink.x1 - ink.x0) * (ink.y1 - ink.y0) / (measured.image.width * measured.image.height) : null,
-      motero_policy_area: excluded.area, motero_policy_width: excluded.width };
+      motero_first_area: initial.area, motero_policy_area: excluded.area, motero_policy_width: excluded.width };
     probe.destroy();
     await apply('includeReferences', true);
     const included = geometry();
