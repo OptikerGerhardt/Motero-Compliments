@@ -48,6 +48,7 @@ function harness(count, visible = [1, 2]) {
   view.viewer = viewer;
   view.state = { options: { mode: 'off' } };
   view.saved = new Map();
+  view.corners = new Map();
   view.generation = 1;
   view.hideNativeBookmarkNotes = () => {};
   view.displayed = () => [0.1, 0.2, 0.9, 0.8];

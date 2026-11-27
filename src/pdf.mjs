@@ -110,6 +110,7 @@ export class PDFView {
     this.bounds = new Map();
     this.busHandlers = [];
     this.saved = new Map();
+    this.corners = new Map();
     this.noteHooks = new Map();
     this.notePages = null;
     this.notePagesLength = -1;
@@ -286,11 +287,15 @@ export class PDFView {
       // Add the shortcut only to pages PDF.js has actually attached.
       if (!div.isConnected || !page.pdfPage) continue;
       let corner = div.querySelector('.motero-page-corner');
-      if (!corner) {
+      const owned = this.corners.get(i);
+      if (!corner || corner !== owned) {
+        owned?.remove();
+        corner?.remove();
         corner = this.win.document.createElement('div'); corner.className = 'motero-page-corner';
         const marker = flagIcon(this.win.document); marker.classList.add('motero-bookmark-marker');
         const toggle = this.state.flagButton(this.win.document, i); toggle.className = 'motero-page-toggle';
         corner.append(marker, toggle); div.append(corner);
+        this.corners.set(i, corner);
       }
       corner.style.top = `${trims[0] + 4}px`;
       corner.style.right = `${trims[1] + 4}px`;
@@ -378,9 +383,10 @@ export class PDFView {
       for (const [key, [value, priority]] of Object.entries(original)) {
         if (value) div.style.setProperty(key, value, priority); else div.style.removeProperty(key);
       }
-      div.querySelector('.motero-page-corner')?.remove();
       div.removeAttribute('data-motero-crop');
     }
+    for (const corner of this.corners.values()) corner.remove();
+    this.corners.clear();
     for (const [page, { original, hook, own }] of this.noteHooks) {
       if (waive(page._pushNote) !== waive(hook)) continue; // Another extension now owns it.
       if (own) page._pushNote = original; else delete page._pushNote;

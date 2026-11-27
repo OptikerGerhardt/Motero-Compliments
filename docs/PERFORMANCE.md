@@ -19,3 +19,5 @@ python3 scripts/test-zotero.py /path/to/zotero --performance --rich-pdf --pages 
 
 The native 500-page run exercised navigation, bookmarks, Reset Zoom, manual crop, rotation and teardown.
 Automatic mode in this PR still starts 13 extractions before the first crop. Issue #14 tracks that separate path.
+
+The 2,000-page native regression also exercises Original-mode scroll/spread, rotation, native zoom, bookmark teardown and re-enable, and two simultaneous readers.
