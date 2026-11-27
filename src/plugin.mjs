@@ -198,3 +198,5 @@ export function shutdown() {
   for (const state of states.values()) state.destroy();
   states.clear();
 }
+
+export { writeOutlineCopy } from './outline-ui.mjs';

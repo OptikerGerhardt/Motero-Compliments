@@ -18,3 +18,5 @@ background/confidence fields were added for conservative fallback selection.
 
 Desktop integration is implemented here. Research references and design decisions
 are in docs/RESEARCH.md. No PDF.js engine is bundled.
+
+The optional PDF outline exporter bundles pdf-lib 1.17.1 (MIT) and its dependencies. Their notices are included in the XPI’s licenses directory.

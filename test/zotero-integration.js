@@ -334,6 +334,56 @@ async function run() {
     await wait(() => viewer.getPageView(0).div.style.clipPath.includes('inset('), 'restore saved crop');
     ok(doc.querySelectorAll('#viewMoteroBookmarks').length === 1, 'Re-enable adopts open readers without duplicate tabs');
     ok(JSON.parse(Zotero.Prefs.get(pref, true)).crops.odd.length === 4, 'Saved manual crops survive plugin restart');
+    doc.getElementById('viewOutline').click();
+    const outlineButton = await wait(() => {
+      const button = doc.querySelector('.motero-outline-tool');
+      return button && doc.defaultView.getComputedStyle(button).display !== 'none' && button;
+    }, 'outline generator on native Outline tab');
+    outlineButton.click();
+    const outlineDialog = await wait(() => doc.querySelector('[data-motero-outline-editor][open]'), 'outline dialog');
+    outlineDialog.querySelector('[name=outline-title]').value = 'Synthetic chapter';
+    clickText(outlineDialog, 'Add entry');
+    ok(outlineDialog.querySelectorAll('.motero-outline-preview li').length === 1,
+      'Outline tool creates a previewable manual entry');
+    const filters = outlineDialog.querySelectorAll('fieldset')[1];
+    filters.querySelector('select').value = 'bookmark';
+    const [, filterColor, , filterLevel] = filters.querySelectorAll('input');
+    filterColor.value = '#000000';
+    filterLevel.value = '2';
+    clickText(outlineDialog, 'Add matching annotations');
+    ok(outlineDialog.querySelectorAll('.motero-outline-preview li').length === 2,
+      'Native outline editor adds just the matching bookmark annotation');
+    const preview = outlineDialog.querySelector('.motero-outline-preview');
+    ok(parseInt(preview.lastElementChild.style.marginInlineStart) === 12, 'Annotation rule sets preview hierarchy level');
+    clickText(outlineDialog, 'Find headings in PDF');
+    await wait(() => [...preview.querySelectorAll('input')].some(input => input.value === 'Synthetic section heading'),
+      'text heading scanned from the PDF');
+    ok(true, 'The outline editor finds a synthetic heading from real PDF text');
+    clickText(outlineDialog, 'Close');
+    const exportScope = { Zotero, Services, Components, IOUtils, setTimeout };
+    Services.scriptloader.loadSubScriptWithOptions(addon.getResourceURI().spec + 'motero.js',
+      { target: exportScope, allowUnsafeURL: true, ignoreCache: true });
+    const output = TEST_ROOT + '/outlined-copy.pdf';
+    const outlineData = [{ title: 'Synthetic chapter', pageIndex: 0, level: 1, x: 71, y: 629 },
+      { title: 'Synthetic subsection', pageIndex: 1, level: 2 }];
+    await exportScope.Motero.writeOutlineCopy(addon.getResourceURI().spec, file, output, outlineData);
+    const exported = await IOUtils.read(output);
+    const pdfLib = Components.utils.waiveXrays(win.pdfjsLib);
+    const loader = Components.utils.waiveXrays(pdfLib.getDocument(Components.utils.cloneInto({ data: exported }, win)));
+    try {
+      const document = Components.utils.waiveXrays(await loader.promise);
+      const entries = await document.getOutline();
+      const [chapter] = entries;
+      ok(entries.length === 1 && chapter.title === 'Synthetic chapter'
+        && chapter.items[0]?.title === 'Synthetic subsection', 'PDF.js reads the exported outline hierarchy');
+      ok(await document.getPageIndex(chapter.dest[0]) === 0 && chapter.dest[2] === 71 && chapter.dest[3] === 629,
+        'Exported outline destination preserves PDF page and coordinates');
+    }
+    finally { await loader.destroy(); }
+    let overwriteRejected = false;
+    try { await exportScope.Motero.writeOutlineCopy(addon.getResourceURI().spec, file, output, outlineData); }
+    catch { overwriteRejected = true; }
+    ok(overwriteRejected, 'Outline export cannot overwrite an existing file');
     const after = await IOUtils.read(file);
     ok(before.length === after.length && before.every((v, i) => v === after[i]), 'PDF bytes are unchanged');
     ok(!doc.querySelector('[role=alert]'), 'No permission error occurs during the complete reader workflow');

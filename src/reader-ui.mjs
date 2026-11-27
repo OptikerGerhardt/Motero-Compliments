@@ -1,3 +1,4 @@
+import { openOutlineEditor } from './outline-ui.mjs';
 import { element, flagIcon, showEditor } from './ui.mjs';
 import { isReaderBookmark } from './core.mjs';
 import { READER_CSS } from './styles.mjs';
@@ -20,6 +21,14 @@ export class ReaderUI {
     const outline = this.doc.getElementById('viewOutline');
     if (outline && !this.doc.getElementById('viewMoteroBookmarks')) this.attachSidebar(outline);
     if (this.search && !this.search.isConnected) this.doc.querySelector('.sidebar-toolbar .end')?.append(this.search);
+    const end = this.doc.querySelector('.sidebar-toolbar .end');
+    if (outline && end && !this.outlineTool?.isConnected) {
+      const text = this.state.t('PDF-Inhaltsverzeichnis erstellen', 'Create PDF outline');
+      this.outlineTool = element(this.doc, 'button', '+', { type: 'button', class: 'toolbar-button motero-outline-tool',
+        'aria-label': text, title: text, 'data-tabstop': '1' });
+      this.outlineTool.addEventListener('click', () => openOutlineEditor(this.state));
+      end.prepend(this.outlineTool);
+    }
     const popup = this.doc.querySelector('.appearance-popup');
     if (popup && !popup.querySelector('[data-motero-crop-settings]')) {
       const reference = popup.querySelector('.group .option > label') || popup;
@@ -171,6 +180,7 @@ export class ReaderUI {
     this.doc.getElementById('viewMoteroBookmarks')?.remove();
     this.doc.getElementById('moteroBookmarksView')?.remove();
     this.search?.remove();
+    this.outlineTool?.remove();
     for (const node of this.doc.querySelectorAll('[data-motero-crop-settings]')) node.remove();
     this.style.remove();
   }

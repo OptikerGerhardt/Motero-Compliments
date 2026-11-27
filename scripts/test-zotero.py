@@ -43,6 +43,8 @@ def fixture(path, rich=False, count=None):
         lines = [f"BT /F1 10 Tf {x} 750 Td (Running chapter header) Tj ET"]
         for y in range(170, 700, 24):
             lines.append(f"BT /F1 12 Tf {x} {y} Td (Synthetic reading content for Zotero crop tests.) Tj ET")
+        if i == 0:
+            lines.append("BT /F1 25 Tf 100 720 Td (Synthetic section heading) Tj ET")
         lines += [f"BT /F1 9 Tf 300 70 Td ({i + 1}) Tj ET", f"0 g {x} 135 250 10 re f"]
         lines.append("BT /F1 8 Tf 530 430 Td (A 123) Tj ET")
         if rich:
