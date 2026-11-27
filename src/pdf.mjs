@@ -9,6 +9,18 @@ import { PDF_CSS } from './styles.mjs';
 import { flagIcon } from './ui.mjs';
 const FULL = [0, 0, 1, 1];
 
+// The PDF.js visibility method is private and may be absent or change shape.
+// On failure, the current page remains the bounded, conservative fallback.
+function visiblePageIndexes(viewer) {
+  try {
+    if (typeof viewer._getVisiblePages !== 'function') return [];
+    const views = viewer._getVisiblePages()?.views;
+    if (!Array.isArray(views)) return [];
+    return views.filter(entry => Number.isInteger(entry?.id)).map(entry => entry.id - 1);
+  }
+  catch { return []; }
+}
+
 export class Analysis {
   constructor(win, rootURI) {
     this.win = waive(win);
@@ -98,20 +110,24 @@ export class PDFView {
     this.bounds = new Map();
     this.busHandlers = [];
     this.saved = new Map();
+    this.corners = new Map();
     this.noteHooks = new Map();
+    this.notePages = null;
+    this.notePagesLength = -1;
+    this.notePagesDirty = true;
     this.generation = 0;
     this.autoFit = true; this.warmQueue = []; this.warmWorkers = 0; this.preparationErrors = new Map();
     this.style = this.win.document.createElement('style');
     this.style.textContent = PDF_CSS;
     this.win.document.head.append(this.style);
     for (const name of ['pagerendered', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged']) {
-      this.on(name, () => this.schedule());
+      this.on(name, () => { this.notePagesDirty = true; this.schedule(); });
     }
     this.on('scalechanging', () => {
       if (!this.settingScale) this.autoFit = false;
       this.schedule();
     });
-    this.on('pagechanging', () => { this.schedule(true); state.updateButtons(); });
+    this.on('pagechanging', () => { this.notePagesDirty = true; this.schedule(true); state.updateButtons(); });
     this.scroll = () => this.schedule();
     this.viewer.container.addEventListener('scroll', this.scroll);
     this.resize = new this.win.ResizeObserver(signal(this.win, () => this.schedule(true)));
@@ -193,7 +209,7 @@ export class PDFView {
     const generation = this.generation;
     try {
       const current = this.viewer.currentPageNumber - 1;
-      const visible = this.viewer._getVisiblePages?.().views?.map(p => p.id - 1) || [current];
+      const visible = visiblePageIndexes(this.viewer);
       const indexes = [...new Set([current, ...visible])].filter(i => i >= 0 && i < this.viewer.pagesCount);
       for (const index of indexes) {
         if (!this.bounds.has(index)) {
@@ -224,11 +240,27 @@ export class PDFView {
     this.viewer.viewer.toggleAttribute('data-motero-cropping', enabled);
     this.viewer.viewer.setAttribute('data-motero-generation', String(this.generation));
     this.hideNativeBookmarkNotes();
-    for (let i = 0; i < this.viewer.pagesCount; i++) {
+    // A full pass is required when leaving a cropped view to restore every
+    // modified page. In stable Original mode only attached visible pages need
+    // bookmark overlays; scrolling must not traverse the whole document.
+    const restoreAll = this.wasCropping && !enabled;
+    this.wasCropping = enabled;
+    const indexes = enabled || restoreAll
+      ? Array.from({ length: this.viewer.pagesCount }, (_, i) => i)
+      : [...new Set([
+        this.viewer.currentPageNumber - 1,
+        ...visiblePageIndexes(this.viewer)
+      ])].filter(i => i >= 0 && i < this.viewer.pagesCount);
+    // A page div can be replaced while cropped. The restore pass below
+    // visits current page views; also restore saved detached divs afterward.
+    // Keep the saved map until every original element is restored.
+    for (const i of indexes) {
       const page = waive(this.viewer.getPageView(i));
       if (!page?.div) continue;
       const div = page.div;
-      if (!this.saved.has(div)) {
+      // Original mode must not write crop styles on pages that Motero never
+      // cropped. Restore only pages whose original styles we actually saved.
+      if (enabled && !this.saved.has(div)) {
         const original = {};
         for (const key of ['clip-path', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left']) {
           original[key] = [div.style.getPropertyValue(key), div.style.getPropertyPriority(key)];
@@ -238,23 +270,32 @@ export class PDFView {
       const b = enabled ? this.displayed(i, page) : FULL;
       const { width: w, height: h } = page.viewport;
       const trims = [b[1] * h, (1 - b[2]) * w, (1 - b[3]) * h, b[0] * w];
-      div.setAttribute('data-motero-crop', trims.join(' '));
-      const values = { 'clip-path': `inset(${trims.map(n => `${n}px`).join(' ')})` };
-      ['top', 'right', 'bottom', 'left'].forEach((side, n) => { values[`margin-${side}`] = `${-trims[n]}px`; });
-      for (const [key, value] of Object.entries(values)) {
-        const original = this.saved.get(div)[key];
-        if (enabled) div.style.setProperty(key, value, 'important');
-        else if (original[0]) div.style.setProperty(key, ...original);
-        else div.style.removeProperty(key);
+      if (enabled) {
+        div.setAttribute('data-motero-crop', trims.join(' '));
+        const values = { 'clip-path': `inset(${trims.map(n => `${n}px`).join(' ')})` };
+        ['top', 'right', 'bottom', 'left'].forEach((side, n) => { values[`margin-${side}`] = `${-trims[n]}px`; });
+        for (const [key, value] of Object.entries(values)) div.style.setProperty(key, value, 'important');
+      }
+      else if (this.saved.has(div)) {
+        for (const [key, [value, priority]] of Object.entries(this.saved.get(div))) {
+          if (value) div.style.setProperty(key, value, priority);
+          else div.style.removeProperty(key);
+        }
+        div.removeAttribute('data-motero-crop');
+        this.saved.delete(div);
       }
       // Add the shortcut only to pages PDF.js has actually attached.
       if (!div.isConnected || !page.pdfPage) continue;
       let corner = div.querySelector('.motero-page-corner');
-      if (!corner) {
+      const owned = this.corners.get(i);
+      if (!corner || corner !== owned) {
+        owned?.remove();
+        corner?.remove();
         corner = this.win.document.createElement('div'); corner.className = 'motero-page-corner';
         const marker = flagIcon(this.win.document); marker.classList.add('motero-bookmark-marker');
         const toggle = this.state.flagButton(this.win.document, i); toggle.className = 'motero-page-toggle';
         corner.append(marker, toggle); div.append(corner);
+        this.corners.set(i, corner);
       }
       corner.style.top = `${trims[0] + 4}px`;
       corner.style.right = `${trims[1] + 4}px`;
@@ -266,9 +307,24 @@ export class PDFView {
       marker.style.color = bookmarks[0]?.color || '#000000';
       this.state.updateFlag(corner.querySelector('button'), i);
     }
+    if (restoreAll) {
+      for (const [div, original] of this.saved) {
+        for (const [key, [value, priority]] of Object.entries(original)) {
+          if (value) div.style.setProperty(key, value, priority);
+          else div.style.removeProperty(key);
+        }
+        div.removeAttribute('data-motero-crop');
+        this.saved.delete(div);
+      }
+    }
   }
   hideNativeBookmarkNotes() {
-    const current = new Set(Array.from(this.view._pages || [], waive));
+    const pages = this.view._pages;
+    // A stable array with unchanged length needs no repeated O(N) hook scan.
+    // PDF.js page lifecycle events invalidate this shortcut, including replacements.
+    if (!this.notePagesDirty && Array.isArray(pages) &&
+        pages === this.notePages && pages.length === this.notePagesLength) return;
+    const current = new Set(Array.from(pages || [], waive));
     for (const [page, { original, hook, own }] of this.noteHooks) {
       if (current.has(page)) continue;
       if (waive(page._pushNote) === waive(hook)) {
@@ -288,6 +344,9 @@ export class PDFView {
       this.noteHooks.set(page, { original, hook, own });
       page.render();
     }
+    this.notePages = pages;
+    this.notePagesLength = Array.isArray(pages) ? pages.length : -1;
+    this.notePagesDirty = false;
   }
   fit(index) {
     const p = this.viewer.getPageView(index);
@@ -324,9 +383,10 @@ export class PDFView {
       for (const [key, [value, priority]] of Object.entries(original)) {
         if (value) div.style.setProperty(key, value, priority); else div.style.removeProperty(key);
       }
-      div.querySelector('.motero-page-corner')?.remove();
       div.removeAttribute('data-motero-crop');
     }
+    for (const corner of this.corners.values()) corner.remove();
+    this.corners.clear();
     for (const [page, { original, hook, own }] of this.noteHooks) {
       if (waive(page._pushNote) !== waive(hook)) continue; // Another extension now owns it.
       if (own) page._pushNote = original; else delete page._pushNote;
