@@ -77,13 +77,10 @@ export class Analysis {
   }
   async render(index, renderer = this.renderer) {
     const { pixels, ...page } = await this.extract(renderer, index);
-    this.geometry ??= new Geometry();
-    if (pixels) await this.geometry.store(index, pixels);
-    else await this.geometry.ready;
-    if (renderer !== this.renderer) {
-      this.geometry?.forget(index);
-      throw Error('Analysis stopped');
-    }
+    const geometry = this.geometry ??= new Geometry();
+    if (pixels) await geometry.store(index, pixels);
+    else await geometry.ready;
+    if (renderer !== this.renderer) throw Error('Analysis stopped');
     return page;
   }
   policyKey(options) {
@@ -142,13 +139,14 @@ export class Analysis {
   stop() {
     this.renderer?.destroy();
     this.renderer = null;
+    this.geometry?.destroy();
+    this.geometry = null;
+    this.raw.clear();
     this.work = new WorkQueue(2);
   }
   destroy() {
     this.stop();
-    this.geometry?.destroy();
     this.cache?.flush();
-    this.raw.clear();
   }
 }
 
