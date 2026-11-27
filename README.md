@@ -66,7 +66,7 @@ beim Originalanhang. Importiere die neue Kopie bei Bedarf als separaten Anhang.
 
 ![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.3.0.png)
 
-Node.js 22+, npm und Python 3. Keine externen Laufzeitdienste oder externen Dienste.
+Node.js 22+, npm und Python 3. Keine externen Laufzeitdienste.
 
 ```sh
 npm ci --cache /tmp/motero-npm-cache --no-audit --no-fund
