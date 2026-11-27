@@ -1,4 +1,4 @@
-import { getReadingBounds, getReadingMarginalia } from './vendor/motero/reading-layout.mjs';
+import { getReadingBounds, getReadingMarginalia, getReadingTextBounds } from './vendor/motero/reading-layout.mjs';
 import { compactReadingImage } from './vendor/motero/reading-image.mjs';
 
 function union(bounds, rects) {
@@ -8,6 +8,12 @@ function union(bounds, rects) {
 
 export function policyBounds(image, lines, model, index, options, ink = null) {
   const refs = getReadingMarginalia(lines, model, index);
+  if (!image) {
+    const ignored = new Set(!options.includeReferences ? refs : []);
+    const kept = lines.filter(line => !ignored.has(line.rect));
+    const bounds = getReadingTextBounds(kept, model, index, { includeMarginalia: options.includeMarginalia });
+    return options.includeReferences ? union(bounds, refs) : bounds;
+  }
   let pixels = image;
   // Keep ordinary side notes without retaining the independently excluded
   // edition/line-reference column. Do not modify the cached source image.

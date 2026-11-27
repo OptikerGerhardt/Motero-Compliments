@@ -18,6 +18,20 @@ python3 scripts/test-zotero.py /path/to/zotero --performance --rich-pdf --pages 
 ```
 
 The native 500-page run exercised navigation, bookmarks, Reset Zoom, manual crop, rotation and teardown.
-Automatic mode in this PR still starts 13 extractions before the first crop. Issue #14 tracks that separate path.
+The Original-only change in PR #12 still started 13 extractions before the first automatic crop. The optimization for issue #14 is measured below.
 
 The 2,000-page native regression also exercises Original-mode scroll/spread, rotation, native zoom, bookmark teardown and re-enable, and two simultaneous readers.
+
+## Automatic crop
+
+The requested page is measured first. Zotero can display its local crop while global samples are collected during a pause. The global profile refines the frame without taking over native zoom.
+
+| Pages | Extractions before first crop, 0.3.0 → current | First visible crop (ms), 0.3.0 → current |
+| ---: | ---: | ---: |
+| 64 | 13 → 1 | 914 → 172 |
+| 500 | 13 → 1 | 962 → 214 |
+| 2000 | 13 → 1 | 1217 → 239 |
+
+Final normalized crop insets matched 0.3.0 to three decimals on the same target page in these text/image fixtures. Timing is diagnostic rather than a threshold.
+
+Pure text pages skip rasterization when their PDF operator lists contain only supported text operations. Raster pixel analysis uses a worker with a local fallback. The persistent cache stores up to 128 final numeric frames for each of eight recent attachment versions.

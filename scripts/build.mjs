@@ -22,8 +22,13 @@ for (const dir of ['src', 'addon', 'scripts', 'test', 'docs']) {
 for (const file of ['package.json', 'package-lock.json', 'README.md', 'CHANGELOG.md', 'COPYING', 'LICENSE', 'NOTICE.md']) {
   await cp(file, `dist/addon/source/${file}`);
 }
+const geometryWorker = await build({
+  entryPoints: ['src/geometry-worker.mjs'], bundle: true, write: false,
+  format: 'iife', target: 'firefox115', legalComments: 'inline'
+});
 await build({ entryPoints: ['src/plugin.mjs'], outfile: 'dist/addon/motero.js',
   bundle: true, format: 'iife', globalName: 'Motero', target: 'firefox115',
+  define: { MOTERO_WORKER_SOURCE: JSON.stringify(geometryWorker.outputFiles[0].text) },
   legalComments: 'inline', sourcemap: false });
 await build({ entryPoints: ['src/content-analysis.mjs'], outfile: 'dist/addon/analysis.js',
   bundle: true, format: 'iife', globalName: 'MoteroPageAnalysis', target: 'firefox115',

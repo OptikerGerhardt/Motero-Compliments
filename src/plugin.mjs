@@ -51,16 +51,16 @@ export class ReaderState {
   annotations() { return this.internal._state.annotations || []; }
   change(value) {
     if (this.closed) return;
-    this.options = settings(value);
-    Zotero.Prefs.set(this.key, JSON.stringify(this.options), true);
+    const options = settings(value);
+    Zotero.Prefs.set(this.key, JSON.stringify(options), true);
     // Other tabs/windows for this attachment share the saved view settings.
     for (const state of states.values()) {
       if (state.key !== this.key) continue;
-      state.options = this.options;
+      const previous = state.options;
+      state.options = options;
       state.ui?.syncControls();
       for (const entry of state.views.values()) {
-        if (this.options.mode === 'off') entry.restoreScale();
-        entry.invalidate();
+        entry.invalidate(previous);
       }
     }
   }

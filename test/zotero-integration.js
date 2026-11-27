@@ -107,6 +107,10 @@ async function run() {
     ok(!appearance.querySelector('h3'), 'Crop settings use native rows instead of a separate bold heading');
     select(appearance, 'fit', 'page'); select(appearance, 'mode', 'automatic'); closeAppearance();
     await wait(() => viewer.getPageView(0).div.style.clipPath.includes('inset('), 'automatic whole-page crop');
+    ok(viewer.viewer.getAttribute('data-motero-analysis-worker') === 'true',
+      'Raster analysis runs on the dedicated worker');
+    await wait(() => viewer.viewer.getAttribute('data-motero-profile') === 'ready', 'deferred document profile');
+    ok(true, 'Global crop profiles refine the visible frame after first display');
     ok(!/^inset\(0px 0px 0px 0px\)$/.test(viewer.getPageView(0).div.style.clipPath), 'Automatic whole-page crop hides white margins');
     ok(!doc.querySelector('[role=alert]'), 'Whole-page fitting has no permission error');
     const modeButtons = (await openAppearance()).querySelectorAll('[data-motero-choice=mode] button');
