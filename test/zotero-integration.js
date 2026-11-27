@@ -312,9 +312,18 @@ async function run() {
       'Outline tool creates a previewable manual entry');
     const filters = outlineDialog.querySelectorAll('fieldset')[1];
     filters.querySelector('select').value = 'bookmark';
+    const [, filterColor, , filterLevel] = filters.querySelectorAll('input');
+    filterColor.value = '#000000';
+    filterLevel.value = '2';
     clickText(outlineDialog, 'Add matching annotations');
     ok(outlineDialog.querySelectorAll('.motero-outline-preview li').length === 2,
       'Native outline editor adds just the matching bookmark annotation');
+    const preview = outlineDialog.querySelector('.motero-outline-preview');
+    ok(parseInt(preview.lastElementChild.style.marginInlineStart) === 12, 'Annotation rule sets preview hierarchy level');
+    clickText(outlineDialog, 'Find headings in PDF');
+    await wait(() => [...preview.querySelectorAll('input')].some(input => input.value === 'Synthetic section heading'),
+      'text heading scanned from the PDF');
+    ok(true, 'The outline editor finds a synthetic heading from real PDF text');
     clickText(outlineDialog, 'Close');
     const exportScope = { Zotero, Services, Components, IOUtils, setTimeout };
     Services.scriptloader.loadSubScriptWithOptions(addon.getResourceURI().spec + 'motero.js',

@@ -44,7 +44,7 @@ Zuschnitt und Modi werden lokal pro Bibliothek und Anhang gespeichert.
 Lesezeichen sind normale Zotero-Notizannotationen mit `Bookmark ·` bzw.
 `Lesezeichen ·`, kompatibel mit Motero. Vorhandene Farben bleiben erhalten;
 schreibgeschützte Annotationen werden nicht verändert. Zotero übernimmt deren
-normale Synchronisierung. Es werden keine PDF-Inhaltsverzeichnisse bearbeitet.
+normale Synchronisierung. Der Originalanhang bleibt beim Export eines PDF-Inhaltsverzeichnisses unverändert.
 
 Der Desktop bereitet bis zu **12 Seiten voraus und 6 zurück** vor. Zwei Analyseaufgaben
 und ein 64-Seiten-Cache begrenzen die Last; sichtbare Seiten haben Vorrang. Nativer
@@ -66,7 +66,7 @@ beim Originalanhang. Importiere die neue Kopie bei Bedarf als separaten Anhang.
 
 ![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.3.0.png)
 
-Node.js 22+, npm und Python 3. Keine Laufzeit-Abhängigkeiten oder externen Dienste.
+Node.js 22+, npm und Python 3. Keine externen Laufzeitdienste oder externen Dienste.
 
 ```sh
 npm ci --cache /tmp/motero-npm-cache --no-audit --no-fund

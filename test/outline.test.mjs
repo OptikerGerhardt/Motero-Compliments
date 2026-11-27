@@ -7,8 +7,8 @@ import { appendOutline } from '../src/outline-pdf.mjs';
 test('annotation outline requires all conditions and keeps native PDF coordinates', () => {
   const match = { type: 'highlight', color: '#ffd400', text: '  Chapter one  ',
     tags: [{ name: 'Outline' }], position: { pageIndex: 1, rects: [[10, 40, 120, 51]] } };
-  const rule = { type: 'highlight', tag: 'outline', color: '#FFD400', title: 'text', prefix: 'Part', level: 2 };
-  const source = [match, { ...match, tags: [{ name: 'other' }] }, { ...match, color: '#111111' },
+  const rule = { type: 'highlight', tag: 'Outline', color: '#FFD400', title: 'text', prefix: 'Part', level: 2 };
+  const source = [match, { ...match, tags: [{ name: 'outline' }] }, { ...match, color: '#111111' },
     { ...match, position: { pageIndex: 100 } }, { ...match, type: 'note' }];
   assert.deepEqual(outlineEntries(source, rule, 3), [{ title: 'Part Chapter one', level: 2, pageIndex: 1, x: 10, y: 51 }]);
   assert.equal(match.text, '  Chapter one  ');

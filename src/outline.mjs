@@ -4,12 +4,12 @@ const title = value => typeof value === 'string' ? value.replace(/\s+/g, ' ').tr
 export const MAX_OUTLINE_ENTRIES = 2000;
 
 export function outlineEntries(annotations, rule, pages) {
-  const tag = rule.tag?.trim().toLocaleLowerCase();
+  const tag = rule.tag?.trim().normalize();
   const prefix = title(rule.prefix);
   return Array.from(annotations).filter(annotation => {
     if (rule.type && (rule.type === 'bookmark' ? !isReaderBookmark(annotation) : annotation.type !== rule.type)) return false;
     if (rule.color && annotation.color?.toLowerCase() !== rule.color.toLowerCase()) return false;
-    return !tag || annotation.tags?.some(value => value.name?.toLocaleLowerCase() === tag);
+    return !tag || annotation.tags?.some(value => value.name?.trim().normalize() === tag);
   }).map(annotation => {
     const position = annotation.position;
     const text = rule.title === 'tag' ? annotation.tags?.[0]?.name : annotation[rule.title];
