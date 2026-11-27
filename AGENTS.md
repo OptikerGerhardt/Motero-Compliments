@@ -11,8 +11,21 @@ Korrektheit, Codequalität und ausreichende Tests haben Vorrang vor Tokenersparn
 - Teste gezielt, ohne notwendige Prüfungen auszulassen.
 - Halte wichtige Architekturinformationen und Projekterkenntnisse hier kompakt und aktuell.
 - UI an Zotero ausrichten; native Schrift, Bedienelemente und passende Icongrößen übernehmen.
-- Halte GitHub nachvollziehbar: fokussierte Commits, Issues/PRs, Changelog und versionierte Releases; nie bestehende Release-Assets überschreiben. Neue Releases mit `npm run release:prepare` vorbereiten und `update.json` samt SHA-256 veröffentlichen.
+- Halte GitHub nachvollziehbar: fokussierte Commits, Issues/PRs, Changelog und versionierte Releases; nie bestehende Release-Assets überschreiben. Nach Freigabe Releases mit `npm run release:prepare` vorbereiten und `update.json` samt SHA-256 veröffentlichen.
 
 Desktop-Plugin: `src/`; originale Motero-Logik: `src/vendor/motero/` (AGPLv3, `COPYING`). Automatische Analyse in `content-analysis.mjs` im PDF-Kontext; nur geklonte Daten zurückgeben. Nativen Benutzerzoom respektieren. Desktop-Prefetch 12/6, Queue 2, Pixelcache 64. Zuschnitt nur als lokale Ansicht; Lesezeichen als native Notizannotationen. Recherche/Architektur: `docs/RESEARCH.md`. Prüfen: `npm test`, `npm run build`; Desktop-Test: `scripts/test-zotero.py` (isoliertes Profil).
 
 Zuschnittmodus ist allein `options.mode`; Randreferenzen/Randnotizen unabhängig in `crop-policy.mjs`. Native UI: `split-toggle`, 20px-Sidebar, `search-box`; PDF-Fahne 42×54px. MIT-Fallback: `src/vendor/crop-to-margin/`, Lizenz erhalten. Private PDFs/Inhalte nie veröffentlichen.
+
+## Verbindlicher Motero-Upstream-Abgleich
+
+- Bei Änderungen an PDF-Zuschnitt, Lesezeichen, Annotationsformat, Navigation oder gemeinsamen Einstellungen zusätzlich `docs/MOTERO_COMPATIBILITY.md` lesen und einhalten.
+- Relevante Änderungen aus `OptikerGerhardt/Motero` (`main` und tatsächlicher `reader`-Branch bzw. im Android-Build verankerter Submodule-SHA) anhand von Diffs und Tests prüfen; funktionale Kompatibilität zählt, nicht das Kopieren der Android-UI.
+- Neue upstream Crop-Erkennungsregeln einschließlich negativer Regressionstests evaluieren und wo angemessen auf Desktop übertragen. Bookmark-Daten, Farben, Positionen und Zotero-Sync-Semantik nicht inkompatibel verändern.
+- Erfasster Upstream-SHA ist **keine** abgeschlossene Kompatibilitätsprüfung. Prüfstände nur mit konkreter Commit-/Test-Evidenz als verifiziert markieren.
+- Große Issues bei Bedarf in kleine, unabhängig reviewfähige Teil-Issues zerlegen; nur bestätigte native GitHub-Sub-Issue-Verknüpfungen als solche bezeichnen. Ein PR je fokussiertem Scope, außer technisch notwendige Abhängigkeiten verlangen eine andere Aufteilung.
+- Die automatisierte Upstream-Beobachtung meldet nur neue Commits im Tracking-Issue #15. Sie übernimmt keinen Code und gibt keine Releases frei. Für kompatibilitätsrelevante PRs Motero-/Reader-SHAs, betroffene Verträge, Tests und begründete Plattformunterschiede dokumentieren.
+
+## Autonomous development
+
+All four workers choose tasks independently. Follow [reservations, reviews and status](docs/AGENT_WORKFLOW.md) and [branch and approval rules](docs/BRANCHING_AND_SECURITY.md).
