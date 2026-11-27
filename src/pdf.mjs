@@ -377,7 +377,7 @@ export class PDFView {
     this.win.clearTimeout(this.timer);
     this.win.clearTimeout(this.warmTimer);
     this.analysis.destroy(); this.resize.disconnect();
-    this.detachAnnotationCopy();
+    this.detachAnnotationCopy?.();
     this.layout.destroy();
     this.viewer.container.removeEventListener('scroll', this.scroll);
     this.win.removeEventListener('unload', this.unload);
