@@ -305,6 +305,41 @@ async function run() {
     toggle(0).click(); toggle(0).click(); toggle(0).click();
     await wait(() => bookmarks().length === 1, 'rapid toggles'); await Zotero.Promise.delay(300);
     ok(bookmarks().length === 1, 'Rapid bookmark clicks serialize');
+    viewer.spreadMode = 1;
+    viewer.scrollMode = 1;
+    viewer.pagesRotation = 90;
+    reader.navigate({ pageIndex: 1 });
+    await wait(() => viewer.getPageView(1)?.pdfPage && toggle(1), 'Original bookmark in horizontal spread');
+    viewer.pagesRotation = 0;
+    viewer.scrollMode = 0;
+    viewer.spreadMode = 0;
+    reader.navigate({ pageIndex: 0 });
+    await wait(() => viewer.currentPageNumber === 1 && toggle(0), 'return in Original');
+    doc.getElementById('zoomAuto').click();
+    ok(!viewer.getPageView(0).div.style.clipPath, 'Original remains uncropped during spread, rotation and native zoom');
+    const oldCorner = corner(0);
+    await addon.disable();
+    await wait(() => !doc.getElementById('viewMoteroBookmarks') && !corner(0), 'Original teardown removes overlay');
+    ok(!oldCorner.isConnected, 'Original disable removes the reader-owned bookmark overlay');
+    await addon.enable();
+    await wait(() => doc.getElementById('viewMoteroBookmarks') && toggle(0), 'Original re-enable creates new overlay');
+    toggle(0).click();
+    await wait(() => !bookmarks().length, 'fresh Original bookmark can be toggled');
+    toggle(0).click();
+    await wait(() => bookmarks().length === 1, 'fresh Original bookmark can be recreated');
+    ok(corner(0) !== oldCorner, 'Re-enable installs an active bookmark overlay in Original');
+    const other = await Zotero.Reader.open(attachment.id, { pageIndex: 1 }, { allowDuplicate: true });
+    await other._initPromise;
+    const otherView = await wait(() => {
+      const candidate = other._internalReader?._primaryView?._iframeWindow;
+      return candidate?.document.querySelector('.motero-page-corner') && candidate;
+    }, 'second Original reader');
+    ok(otherView.document !== win.document && corner(0)?.isConnected,
+      'Two Original readers own separate bookmark overlays');
+    other.close();
+    Zotero.getMainWindow().Zotero_Tabs.select(reader.tabID);
+    internal.toggleSidebar(true);
+    await wait(() => corner(0)?.isConnected && doc.getElementById('viewMoteroBookmarks'), 'first reader survives second-reader close');
     // Optional native screenshot of the synthetic fixture, never personal PDFs.
     const screenshotSettings = await openAppearance();
     select(screenshotSettings, 'mode', 'manual'); closeAppearance();

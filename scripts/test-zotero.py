@@ -20,7 +20,7 @@ import zlib
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def fixture(path, rich=False):
+def fixture(path, rich=False, count=None):
     objects = [b"<< /Type /Catalog /Pages 2 0 R >>", b"", b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
     image_id = None
     if rich:
@@ -34,7 +34,7 @@ def fixture(path, rich=False):
             packed = zlib.compress(raw)
             objects.append(f"<< /Type /XObject /Subtype /Image /Width 96 /Height 96 /ColorSpace {color} /BitsPerComponent 8 /Filter /FlateDecode /Length {len(packed)}{mask} >>\nstream\n".encode() + packed + b"\nendstream")
     kids = []
-    for i in range(64 if rich else 6):
+    for i in range(count or (64 if rich else 6)):
         page_id, stream_id = len(objects) + 1, len(objects) + 2
         kids.append(f"{page_id} 0 R")
         origin = 20 if i == 4 else 0
@@ -71,9 +71,13 @@ def main():
     parser.add_argument('--upgrade-from', type=Path, help='Install an older XPI and test Zotero\'s published update feed first')
     parser.add_argument('--ca-cert', type=Path, action='append', default=[], help='Import a trusted local CA into the disposable profile only')
     parser.add_argument('--rich-pdf', action='store_true', help='Use 64 synthetic pages with image soft masks')
+    parser.add_argument('--pages', type=int, choices=(64, 500, 2000), help='Synthetic long PDF size')
+    parser.add_argument('--performance', action='store_true', help='Measure synthetic PDF viewer work without taking screenshots')
     parser.add_argument('--pdf', type=Path, help='Private local PDF; runs the no-screenshot document smoke test')
     parser.add_argument('--xpi', type=Path, help='Test a specific artifact without checking for updates')
     args = parser.parse_args()
+    if args.performance and (args.pdf or args.upgrade_from):
+        parser.error('--performance uses only synthetic fixtures and no updater')
     binary = args.binary.resolve()
     runtime = Path(tempfile.mkdtemp(prefix="motero-zotero-test-"))
     profile = runtime / "profile"
@@ -85,7 +89,7 @@ def main():
     if args.pdf:
         shutil.copyfile(args.pdf, pdf)
     else:
-        fixture(pdf, rich=args.rich_pdf)
+        fixture(pdf, rich=args.rich_pdf, count=args.pages)
     version = json.loads((ROOT / 'package.json').read_text())["version"]
     xpi = args.upgrade_from or args.xpi or ROOT / f"dist/motero-compliments-{version}.xpi"
     with zipfile.ZipFile(xpi) as archive:
@@ -99,7 +103,9 @@ def main():
     (harness / "manifest.json").write_text(json.dumps(test_manifest))
     (harness / "bootstrap.js").write_text('var scope=this; function install(){} function uninstall(){} function shutdown(){}\n'
         'function startup(data){Services.scriptloader.loadSubScript(data.rootURI+"run.js",scope); run();}\n')
-    js = (ROOT / ("test/zotero-document-smoke.js" if args.pdf else "test/zotero-integration.js")).read_text()
+    test_script = ("zotero-performance.js" if args.performance else
+        "zotero-document-smoke.js" if args.pdf else "zotero-integration.js")
+    js = (ROOT / "test" / test_script).read_text()
     (harness / "run.js").write_text("var TEST_ROOT=" + json.dumps(str(runtime)) + ";\n"
         + "var TEST_EXPECTED_VERSION=" + json.dumps(version) + ";\n"
         + "var TEST_CHECK_UPDATES=" + json.dumps(bool(args.upgrade_from)) + ";\n" + js)
