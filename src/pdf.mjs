@@ -317,6 +317,10 @@ export class PDFView {
             this.analysis.profile = profile;
             this.bounds.clear();
             this.dirty.clear();
+            // The old queue was filtered against provisional frames. Rebuild
+            // it so all look-ahead pages are prepared under the final profile.
+            this.warmCenter = undefined;
+            this.warmQueue = [];
             this.schedule();
           }
         }
