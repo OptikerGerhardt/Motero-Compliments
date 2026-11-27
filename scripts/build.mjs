@@ -28,6 +28,14 @@ await build({ entryPoints: ['src/plugin.mjs'], outfile: 'dist/addon/motero.js',
 await build({ entryPoints: ['src/content-analysis.mjs'], outfile: 'dist/addon/analysis.js',
   bundle: true, format: 'iife', globalName: 'MoteroPageAnalysis', target: 'firefox115',
   legalComments: 'inline' });
+// Keep PDF writing out of reader startup. It is loaded only on explicit export.
+await build({ entryPoints: ['src/outline-pdf.mjs'], outfile: 'dist/addon/outline-pdf.js',
+  bundle: true, format: 'iife', globalName: 'MoteroOutlinePDF', target: 'firefox115',
+  legalComments: 'eof', minify: true });
+for (const [dependency, license] of [['pdf-lib', 'LICENSE.md'], ['@pdf-lib/standard-fonts', 'LICENSE.md'],
+  ['@pdf-lib/upng', 'LICENSE'], ['pako', 'LICENSE'], ['tslib', 'LICENSE.txt']]) {
+  await cp(`node_modules/${dependency}/${license}`, `dist/addon/licenses/${dependency.split('/').at(-1)}-${license}`);
+}
 const out = `dist/motero-compliments-${manifest.version}.xpi`;
 // Recreate the archive: deleted source files must not survive a rebuild.
 execFileSync('python3', ['-c', `import pathlib,zipfile

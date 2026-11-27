@@ -1,4 +1,10 @@
 export const READER_CSS = `
+.sidebar-toolbar:not(:has(#viewOutline[aria-selected=true])) .motero-outline-tool{display:none}
+[data-motero-outline-editor] fieldset{margin-block:8px;display:flex;gap:8px;flex-wrap:wrap}
+[data-motero-outline-editor] :is(fieldset,li) label{display:inline-flex;align-items:center;gap:5px}
+[data-motero-outline-editor] input[type=number]{width:5ch}
+[data-motero-outline-editor] .motero-outline-preview{max-height:25vh;overflow:auto}
+[data-motero-outline-editor] li button{margin-inline-start:5px}
 .motero-crop-settings,.motero-crop-settings :is(label,button,input,select,output){font:inherit;color:inherit}
 .motero-crop-settings .motero-margin-control{width:187px;display:flex;align-items:center;gap:8px}
 .motero-crop-settings .motero-margin-control input{min-width:0;flex:1;width:130px}
