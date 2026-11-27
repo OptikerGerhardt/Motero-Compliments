@@ -1,3 +1,4 @@
+import { attachAnnotationCopy } from './annotation-style.mjs';
 import { getReadingSamples, getReadingTextLines, buildReadingModel,
   localReadingPages, buildReadingProfiles, resolveReadingBounds, rotateReadingBounds, getReadingMarginalia
 } from './vendor/motero/reading-layout.mjs';
@@ -92,6 +93,7 @@ export class PDFView {
     this.state = state;
     this.win = waive(view._iframeWindow);
     this.app = waive(this.win.PDFViewerApplication);
+    this.detachAnnotationCopy = attachAnnotationCopy(state, this.win.document);
     this.viewer = waive(this.app.pdfViewer);
     this.analysis = new Analysis(this.win, state.rootURI);
     this.layout = waive(this.win.MoteroPageAnalysis.installLayout());
@@ -316,6 +318,7 @@ export class PDFView {
     this.win.clearTimeout(this.timer);
     this.win.clearTimeout(this.warmTimer);
     this.analysis.destroy(); this.resize.disconnect();
+    this.detachAnnotationCopy();
     this.layout.destroy();
     this.viewer.container.removeEventListener('scroll', this.scroll);
     this.win.removeEventListener('unload', this.unload);

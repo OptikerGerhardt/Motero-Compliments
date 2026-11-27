@@ -1,3 +1,4 @@
+import { annotationStyleMenu, attachAnnotationCopy, clearAnnotationStyle } from './annotation-style.mjs';
 import { settings, preferenceKey, pageBookmarks, bookmarkAnnotation, SerialQueue } from './core.mjs';
 import { PDFView } from './pdf.mjs';
 import { waive, contentData, signal } from './bridge.mjs';
@@ -26,6 +27,7 @@ export class ReaderState {
     this.observer = new doc.defaultView.MutationObserver(signal(doc.defaultView, () => this.discover()));
     this.observer.observe(doc.body, contentData(doc.defaultView, { childList: true, subtree: true }));
     this.ui = new ReaderUI(this);
+    this.detachAnnotationCopy = attachAnnotationCopy(this, doc);
     this.discover();
   }
   discover() {
@@ -143,6 +145,7 @@ export class ReaderState {
     this.doc.defaultView.clearTimeout(this.errorTimer); this.status?.remove();
     for (const dialog of this.dialogs) dialog.close();
     for (const entry of this.views.values()) entry.destroy();
+    this.detachAnnotationCopy();
     this.ui.destroy();
     this.views.clear(); this.buttons.clear(); this.dialogs.clear();
   }
@@ -174,6 +177,10 @@ export async function startup({ id, rootURI }) {
   active = true; pluginID = id; pluginRoot = rootURI;
   const register = (type, fn) => { Zotero.Reader.registerEventListener(type, fn, id); bindings.push([type, fn]); };
   register('renderToolbar', toolbar);
+  register('createAnnotationContextMenu', ({ reader, doc, params, append }) => {
+    const state = adopt(reader, doc);
+    if (state) annotationStyleMenu(state, params, append);
+  });
   // Plugin enables/upgrades must also adopt already open tabs and reader windows.
   for (const reader of Zotero.Reader._readers) {
     await reader._initPromise;
@@ -188,6 +195,7 @@ export async function startup({ id, rootURI }) {
 let observerID;
 export function shutdown() {
   active = false;
+  clearAnnotationStyle();
   if (observerID) Zotero.Notifier.unregisterObserver(observerID);
   observerID = null;
   // Some older Reader versions inverted unregisterEventListener's predicate.

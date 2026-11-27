@@ -50,6 +50,13 @@ Der Desktop bereitet bis zu **12 Seiten voraus und 6 zurück** vor. Zwei Analyse
 und ein 64-Seiten-Cache begrenzen die Last; sichtbare Seiten haben Vorrang. Nativer
 Reset Zoom und eigener Zoom bleiben wirksam, gespeicherte Rahmen bleiben erhalten.
 
+## Anmerkungsstil kopieren
+
+Wähle eine PDF-Annotation und drücke **Strg+C** (macOS **⌘C**) oder wähle
+**Anmerkungsstil kopieren** im Annotationsmenü. Zoteros normales Kopieren bleibt
+verfügbar. Markiere die Zielannotation(en) und wähle **Farbe und Tags übernehmen**.
+Neue Tags ergänzen vorhandene Tags. Inhalt, Typ und PDF-Position bleiben erhalten.
+
 ## Entwicklung
 
 ![Aa-Zuschnitt und Lesezeichen-Sidebar in Zotero 10.0.8; synthetisches Test-PDF](docs/screenshots/native-reader-0.3.0.png)

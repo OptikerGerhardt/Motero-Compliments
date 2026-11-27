@@ -167,7 +167,7 @@ async function run() {
     ok(Number(win.getComputedStyle(toggle(0)).opacity) === 0, 'Leaving the crop corner hides the bookmark control again');
     ok(parseFloat(corner(0).style.top) > 4 && parseFloat(corner(0).style.right) > 4, 'Flag is pinned inside the cropped upper-right corner');
     const originalNote = Components.utils.cloneInto({ type: 'note', color: '#000000',
-      comment: 'Ordinary black note', pageLabel: '1', sortIndex: '00000|000000|00100',
+      comment: 'Ordinary black note', tags: [{ name: 'Source style tag' }], pageLabel: '1', sortIndex: '00000|000000|00100',
       position: { pageIndex: 0, rects: [[120, 500, 142, 522]] } }, win);
     view._onAddAnnotation(originalNote, false);
     await wait(() => internal._state.annotations.some(a => a.comment === 'Ordinary black note'), 'ordinary note');
@@ -181,6 +181,36 @@ async function run() {
     }, 'native page annotation renderer'));
     const display = Array.from(renderedPage._buildDisplayList(), value => Components.utils.waiveXrays(value));
     ok(display.filter(i => i.kind === 'noteIcon').length === 1, 'Native bookmark sticky-note icon is suppressed; ordinary black note is preserved');
+    const stylesMenu = Zotero.Reader._registeredListeners.find(entry => entry.type === 'createAnnotationContextMenu'
+      && entry.pluginID === 'motero-compliments@optikergerhardt');
+    ok(!!stylesMenu, 'Annotation context menu exposes style operations');
+    const sourceStyle = internal._state.annotations.find(a => a.comment === 'Ordinary black note');
+    view._onAddAnnotation(Components.utils.cloneInto({
+      type: 'note', color: '#ffd400', comment: 'Style target', tags: [{ name: 'Existing target tag' }], pageLabel: '1',
+      sortIndex: '00000|000001|00100', position: { pageIndex: 0, rects: [[150, 505, 172, 527]] }
+    }, win), false);
+    const styleTarget = await wait(() => internal._state.annotations.find(a => a.comment === 'Style target'), 'style target');
+    const oldTarget = JSON.stringify(styleTarget.position);
+    internal.setSelectedAnnotations(Components.utils.cloneInto([sourceStyle.id], reader._iframeWindow));
+    await wait(() => internal._state.selectedAnnotationIDs.includes(sourceStyle.id), 'source annotation selection');
+    const copy = new win.KeyboardEvent('keydown', Components.utils.cloneInto({
+      key: 'c', ctrlKey: true, bubbles: true, cancelable: true
+    }, win));
+    win.document.body.dispatchEvent(copy);
+    const styleActions = [];
+    stylesMenu.handler({ reader, doc, params: { ids: [styleTarget.id] }, append: item => styleActions.push(item) });
+    const pasteStyle = styleActions.find(item => item.label === 'Paste annotation color and tags');
+    ok(!!pasteStyle, 'Copying a selected annotation makes its style available for pasting');
+    pasteStyle.onCommand();
+    const pasted = await wait(() => {
+      const current = internal._state.annotations.find(a => a.id === styleTarget.id);
+      return current?.color === '#000000' && current;
+    }, 'annotation color applied');
+    ok(pasted.comment === 'Style target' && pasted.type === 'note' && JSON.stringify(pasted.position) === oldTarget,
+      'Pasting style preserves the original annotation type, text and PDF coordinates');
+    ok(pasted.tags.some(tag => tag.name === 'Source style tag') && pasted.tags.some(tag => tag.name === 'Existing target tag'),
+      'Pasting annotation style adds source tags and keeps existing tags');
+    internal._annotationManager.deleteAnnotations(Components.utils.cloneInto([styleTarget.id], reader._iframeWindow));
     internal.toggleSidebar(true); tab.click();
     const panel = doc.getElementById('moteroBookmarksView');
     ok(tab.getAttribute('aria-selected') === 'true' && doc.body.classList.contains('motero-bookmarks-open'), 'Bookmark list opens as a native sidebar tab');
